@@ -25,7 +25,7 @@ class DocumentInfo {
 
 class DocumentsService {
   final SupabaseClient _client = Supabase.instance.client;
-  static const String _bucketName = 'partner_documents';
+  static const String _bucketName = 'partner-documents';
 
   Future<List<DocumentInfo>> getDocumentsStatus() async {
     final userId = _client.auth.currentUser?.id;

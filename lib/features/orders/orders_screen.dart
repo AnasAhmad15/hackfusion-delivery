@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:pharmaco_delivery_partner/core/services/order_service.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:pharmaco_delivery_partner/app/routes/app_routes.dart';
-import 'package:pharmaco_delivery_partner/core/services/profile_service.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -13,7 +11,8 @@ class OrdersScreen extends StatefulWidget {
   State<OrdersScreen> createState() => _OrdersScreenState();
 }
 
-class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
+class _OrdersScreenState extends State<OrdersScreen>
+    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   final OrderService _orderService = OrderService();
 
   @override
@@ -34,10 +33,7 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
           ),
           Expanded(
             child: TabBarView(
-              children: [
-                _AvailableOrdersList(),
-                _MyOrdersList(),
-              ],
+              children: [_AvailableOrdersList(), _MyOrdersList()],
             ),
           ),
         ],
@@ -53,50 +49,14 @@ class _AvailableOrdersList extends StatefulWidget {
 
 class __AvailableOrdersListState extends State<_AvailableOrdersList> {
   final OrderService _orderService = OrderService();
-  Position? _currentPosition;
-  bool _isLoadingLocation = true;
 
   @override
   void initState() {
     super.initState();
-    _getCurrentLocation();
-  }
-
-  Future<void> _getCurrentLocation() async {
-    try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        setState(() => _isLoadingLocation = false);
-        return;
-      }
-
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          setState(() => _isLoadingLocation = false);
-          return;
-        }
-      }
-
-      final position = await Geolocator.getCurrentPosition();
-      if (mounted) {
-        setState(() {
-          _currentPosition = position;
-          _isLoadingLocation = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) setState(() => _isLoadingLocation = false);
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoadingLocation) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
     return Column(
       children: [
         Container(
@@ -111,27 +71,29 @@ class __AvailableOrdersListState extends State<_AvailableOrdersList> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Orders within 5 km',
-                      style: TextStyle(color: Colors.blue.shade900, fontSize: 14, fontWeight: FontWeight.bold),
+                      'Available orders',
+                      style: TextStyle(
+                        color: Colors.blue.shade900,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     Text(
-                      _currentPosition == null ? 'Location unavailable' : 'Real-time updates active',
-                      style: TextStyle(color: Colors.blue.shade700, fontSize: 12),
+                      'Real-time updates active',
+                      style: TextStyle(
+                        color: Colors.blue.shade700,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),
               ),
-              if (_currentPosition != null)
-                const Icon(Icons.location_on, size: 18, color: Colors.green),
             ],
           ),
         ),
         Expanded(
           child: StreamBuilder<List<Map<String, dynamic>>>(
-            stream: _orderService.getIncomingOrders(
-              lat: _currentPosition?.latitude,
-              lng: _currentPosition?.longitude,
-            ),
+            stream: _orderService.getIncomingOrders(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
@@ -164,7 +126,11 @@ class __AvailableOrdersListState extends State<_AvailableOrdersList> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.location_searching, size: 64, color: Colors.grey.shade300),
+            Icon(
+              Icons.location_searching,
+              size: 64,
+              color: Colors.grey.shade300,
+            ),
             const SizedBox(height: 16),
             const Text(
               'No orders nearby',
@@ -191,9 +157,10 @@ class _AvailableOrderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final orderService = OrderService();
-    final double? distanceMeters = (order['distance_meters'] as num?)?.toDouble();
-    final String distanceText = distanceMeters != null 
-        ? '${(distanceMeters / 1000).toStringAsFixed(1)} km away' 
+    final double? distanceMeters = (order['distance_meters'] as num?)
+        ?.toDouble();
+    final String distanceText = distanceMeters != null
+        ? '${(distanceMeters / 1000).toStringAsFixed(1)} km away'
         : 'Nearby';
 
     return Card(
@@ -203,7 +170,7 @@ class _AvailableOrderCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
-          border: order['is_emergency'] == true 
+          border: order['is_emergency'] == true
               ? Border.all(color: Colors.red.shade300, width: 2)
               : null,
         ),
@@ -228,21 +195,31 @@ class _AvailableOrderCard extends StatelessWidget {
                         ),
                         Text(
                           distanceText,
-                          style: TextStyle(color: theme.primaryColor, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                            color: theme.primaryColor,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ],
                     ),
                   ),
                   if (order['is_emergency'] == true)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.red.shade50,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Text(
                         'URGENT',
-                        style: TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                 ],
@@ -250,7 +227,11 @@ class _AvailableOrderCard extends StatelessWidget {
               const Divider(height: 24),
               Row(
                 children: [
-                  const Icon(Icons.location_on_outlined, size: 18, color: Colors.grey),
+                  const Icon(
+                    Icons.location_on_outlined,
+                    size: 18,
+                    color: Colors.grey,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -269,7 +250,10 @@ class _AvailableOrderCard extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Estimated Payout', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                      const Text(
+                        'Estimated Payout',
+                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                      ),
                       Text(
                         '₹${(order['payout'] as num?)?.toDouble() ?? 0.0}',
                         style: theme.textTheme.titleLarge?.copyWith(
@@ -284,13 +268,21 @@ class _AvailableOrderCard extends StatelessWidget {
                       await orderService.acceptOrder(order['id']);
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Order accepted!'), backgroundColor: Colors.green),
+                          const SnackBar(
+                            content: Text('Order accepted!'),
+                            backgroundColor: Colors.green,
+                          ),
                         );
                       }
                     },
                     style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     child: const Text('ACCEPT'),
                   ),
@@ -323,31 +315,48 @@ class __MyOrdersListState extends State<_MyOrdersList> {
         if (snapshot.hasError) {
           return Center(child: Text('Error: ${snapshot.error}'));
         }
-        
+
         final allOrders = snapshot.data ?? [];
         if (allOrders.isEmpty) {
           return _buildEmptyState();
         }
 
-        final activeOrders = allOrders.where((o) => 
-          ['assigned', 'accepted', 'picked_up', 'on_the_way', 'delivered'].contains(o['status']?.toString().toLowerCase())
-        ).toList();
-        
-        final pastOrders = allOrders.where((o) => 
-          ['completed', 'cancelled'].contains(o['status']?.toString().toLowerCase())
-        ).toList();
+        final activeOrders = allOrders
+            .where(
+              (o) => [
+                'assigned',
+                'accepted',
+                'picked_up',
+                'on_the_way',
+                'delivered',
+              ].contains(o['status']?.toString().toLowerCase()),
+            )
+            .toList();
+
+        final pastOrders = allOrders
+            .where(
+              (o) => [
+                'completed',
+                'cancelled',
+              ].contains(o['status']?.toString().toLowerCase()),
+            )
+            .toList();
 
         return ListView(
           padding: const EdgeInsets.all(16.0),
           children: [
             if (activeOrders.isNotEmpty) ...[
               _buildSectionHeader('Active Orders'),
-              ...activeOrders.map((order) => _OrderListItem(order: order, isActive: true)),
+              ...activeOrders.map(
+                (order) => _OrderListItem(order: order, isActive: true),
+              ),
               const SizedBox(height: 24),
             ],
             if (pastOrders.isNotEmpty) ...[
               _buildSectionHeader('Past History'),
-              ...pastOrders.map((order) => _OrderListItem(order: order, isActive: false)),
+              ...pastOrders.map(
+                (order) => _OrderListItem(order: order, isActive: false),
+              ),
             ],
           ],
         );
@@ -375,11 +384,21 @@ class __MyOrdersListState extends State<_MyOrdersList> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.assignment_outlined, size: 64, color: Colors.grey.shade300),
+          Icon(
+            Icons.assignment_outlined,
+            size: 64,
+            color: Colors.grey.shade300,
+          ),
           const SizedBox(height: 16),
-          const Text('No orders found', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const Text(
+            'No orders found',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
-          Text('Your assigned and past orders will appear here', style: TextStyle(color: Colors.grey.shade600)),
+          Text(
+            'Your assigned and past orders will appear here',
+            style: TextStyle(color: Colors.grey.shade600),
+          ),
         ],
       ),
     );
@@ -408,9 +427,17 @@ class _OrderListItem extends StatelessWidget {
       child: ListTile(
         onTap: () {
           if (isFinalized) {
-            Navigator.pushNamed(context, AppRoutes.orderSummary, arguments: order);
+            Navigator.pushNamed(
+              context,
+              AppRoutes.orderSummary,
+              arguments: order,
+            );
           } else {
-            Navigator.pushNamed(context, AppRoutes.orderDetails, arguments: order);
+            Navigator.pushNamed(
+              context,
+              AppRoutes.orderDetails,
+              arguments: order,
+            );
           }
         },
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -451,12 +478,18 @@ class _OrderListItem extends StatelessWidget {
 
   Color _getStatusColor(String status) {
     switch (status) {
-      case 'completed': return Colors.green;
-      case 'cancelled': return Colors.red;
-      case 'picked_up': return Colors.orange;
-      case 'on_the_way': return Colors.blue;
-      case 'accepted': return Colors.blue;
-      default: return Colors.grey;
+      case 'completed':
+        return Colors.green;
+      case 'cancelled':
+        return Colors.red;
+      case 'picked_up':
+        return Colors.orange;
+      case 'on_the_way':
+        return Colors.blue;
+      case 'accepted':
+        return Colors.blue;
+      default:
+        return Colors.grey;
     }
   }
 }
@@ -471,13 +504,15 @@ class _OrderCard extends StatelessWidget {
     final lng = order['delivery_lng'];
 
     if (lat != null && lng != null) {
-      final uri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
+      final uri = Uri.parse(
+        'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng',
+      );
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open maps.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Could not open maps.')));
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -489,7 +524,11 @@ class _OrderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final time = order['created_at'] != null ? DateFormat('MMM d, h:mm a').format(DateTime.parse(order['created_at'])) : 'N/A';
+    final time = order['created_at'] != null
+        ? DateFormat(
+            'MMM d, h:mm a',
+          ).format(DateTime.parse(order['created_at']))
+        : 'N/A';
     final status = order['status'] as String? ?? 'unknown';
 
     return Card(
@@ -504,8 +543,19 @@ class _OrderCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Order from ${order['customer_name'] ?? 'N/A'}', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                Text('\$${(order['payout'] as num?)?.toDouble() ?? 0.0}', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: theme.primaryColor)),
+                Text(
+                  'Order from ${order['customer_name'] ?? 'N/A'}',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  '\$${(order['payout'] as num?)?.toDouble() ?? 0.0}',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: theme.primaryColor,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -515,10 +565,19 @@ class _OrderCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 GestureDetector(
                   onTap: () => _showStatusExplanation(context),
-                  child: Icon(Icons.info_outline, size: 20, color: Colors.grey[600]),
+                  child: Icon(
+                    Icons.info_outline,
+                    size: 20,
+                    color: Colors.grey[600],
+                  ),
                 ),
                 const Spacer(),
-                Text(time, style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey[600])),
+                Text(
+                  time,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: Colors.grey[600],
+                  ),
+                ),
               ],
             ),
             if (status == 'accepted' || status == 'picked_up') ...[
@@ -529,10 +588,12 @@ class _OrderCard extends StatelessWidget {
                   onPressed: () => _launchMapsNavigation(context),
                   icon: const Icon(Icons.navigation_outlined),
                   label: const Text('NAVIGATE TO DELIVERY'),
-                  style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
                 ),
               ),
-            ]
+            ],
           ],
         ),
       ),
@@ -547,14 +608,22 @@ class _StatusBadge extends StatelessWidget {
 
   Color _getStatusColor() {
     switch (status.toLowerCase()) {
-      case 'completed': return Colors.green;
-      case 'pending': return Colors.orange;
-      case 'cancelled': return Colors.red;
-      case 'picked_up': return Colors.orange;
-      case 'accepted': return Colors.blue;
-      case 'on_the_way': return Colors.blue;
-      case 'assigned': return Colors.blue;
-      default: return Colors.grey;
+      case 'completed':
+        return Colors.green;
+      case 'pending':
+        return Colors.orange;
+      case 'cancelled':
+        return Colors.red;
+      case 'picked_up':
+        return Colors.orange;
+      case 'accepted':
+        return Colors.blue;
+      case 'on_the_way':
+        return Colors.blue;
+      case 'assigned':
+        return Colors.blue;
+      default:
+        return Colors.grey;
     }
   }
 
@@ -584,7 +653,9 @@ class _StatusBadge extends StatelessWidget {
 void _showStatusExplanation(BuildContext context) {
   showModalBottomSheet(
     context: context,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
     builder: (context) {
       return Container(
         padding: const EdgeInsets.all(24),
@@ -592,13 +663,30 @@ void _showStatusExplanation(BuildContext context) {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Order Statuses', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+            Text(
+              'Order Statuses',
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 16),
-            _buildStatusExplanationRow(Colors.orange, 'Pending', 'You have accepted this order and need to complete the delivery.'),
+            _buildStatusExplanationRow(
+              Colors.orange,
+              'Pending',
+              'You have accepted this order and need to complete the delivery.',
+            ),
             const Divider(height: 24),
-            _buildStatusExplanationRow(Colors.green, 'Completed', 'You have successfully completed this delivery.'),
+            _buildStatusExplanationRow(
+              Colors.green,
+              'Completed',
+              'You have successfully completed this delivery.',
+            ),
             const Divider(height: 24),
-            _buildStatusExplanationRow(Colors.red, 'Cancelled', 'This order was cancelled by the customer or the system.'),
+            _buildStatusExplanationRow(
+              Colors.red,
+              'Cancelled',
+              'This order was cancelled by the customer or the system.',
+            ),
           ],
         ),
       );
@@ -615,7 +703,10 @@ Widget _buildStatusExplanationRow(Color color, String title, String subtitle) {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
             Text(subtitle, style: TextStyle(color: Colors.grey[600])),
           ],
         ),
@@ -638,13 +729,19 @@ class _EmptyState extends StatelessWidget {
           SizedBox(height: MediaQuery.of(context).size.height * 0.2),
           const Icon(Icons.receipt_long, size: 100, color: Colors.grey),
           const SizedBox(height: 16),
-          Text(isActiveTab ? 'No Active Orders' : 'No Past Orders', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall),
+          Text(
+            isActiveTab ? 'No Active Orders' : 'No Past Orders',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
           Text(
             isActiveTab
                 ? 'Go online on the dashboard to start receiving orders.'
                 : 'Your completed or cancelled orders will appear here.',
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey[600]),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyLarge?.copyWith(color: Colors.grey[600]),
           ),
         ],
       ),

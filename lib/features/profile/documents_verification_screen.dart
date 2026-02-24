@@ -252,6 +252,9 @@ class _DocumentsVerificationScreenState
         .where((doc) => doc.status == DocumentStatus.approved)
         .length;
     final int totalCount = _documents.length;
+    final bool allApproved =
+        _documents.isNotEmpty &&
+        _documents.every((doc) => doc.status == DocumentStatus.approved);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -278,6 +281,16 @@ class _DocumentsVerificationScreenState
                 ],
               ),
             ),
+      floatingActionButton: allApproved
+          ? FloatingActionButton.extended(
+              onPressed: () => Navigator.pop(context),
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.check_circle_outline),
+              label: const Text('DONE'),
+            )
+          : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 

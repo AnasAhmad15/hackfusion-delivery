@@ -1,50 +1,44 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class OrderService {
   final SupabaseClient _client = Supabase.instance.client;
 
-  Stream<List<Map<String, dynamic>>> getIncomingOrders({double? lat, double? lng, double radiusMeters = 5000}) {
-    if (lat != null && lng != null) {
-      // Use the RPC for nearby orders
-      return _client
-          .rpc('get_nearby_orders', params: {
-            'partner_lat': lat,
-            'partner_lng': lng,
-            'radius_meters': radiusMeters,
-          })
-          .asStream()
-          .map((data) => List<Map<String, dynamic>>.from(data));
-    }
-
-    // Fallback to standard stream if no location is provided
+  Stream<List<Map<String, dynamic>>> getIncomingOrders() {
     return _client
         .from('orders')
         .stream(primaryKey: ['id'])
-        .eq('status', 'pending')
         .order('created_at', ascending: false)
-        .map((orders) => orders.where((order) => order['delivery_partner_id'] == null).toList());
+        .map((orders) {
+          debugPrint('OrderService.getIncomingOrders: rows=${orders.length}');
+          if (orders.isNotEmpty) {
+            final first = orders.first;
+            debugPrint(
+              'OrderService.getIncomingOrders: sample status=${first['status']} delivery_partner_id=${first['delivery_partner_id']}',
+            );
+          }
+
+          final available = orders.where((order) {
+            final status = (order['status'] as String? ?? '').toLowerCase();
+            final unassigned = order['delivery_partner_id'] == null;
+            return status == 'accepted' && unassigned;
+          }).toList();
+          return List<Map<String, dynamic>>.from(available);
+        });
   }
 
-  Stream<int> getAvailableOrdersCountStream({double? lat, double? lng, double radiusMeters = 5000}) {
-    if (lat != null && lng != null) {
-      return getIncomingOrders(lat: lat, lng: lng, radiusMeters: radiusMeters)
-          .map((orders) => orders.length);
-    }
-    return _client
-        .from('orders')
-        .stream(primaryKey: ['id'])
-        .eq('status', 'pending')
-        .map((orders) => orders.where((order) => order['delivery_partner_id'] == null).length);
+  Stream<int> getAvailableOrdersCountStream() {
+    return getIncomingOrders().map((orders) => orders.length);
   }
 
   Future<void> acceptOrder(String orderId) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception('User not logged in');
 
-    await _client.from('orders').update({
-      'status': 'accepted',
-      'delivery_partner_id': userId,
-    }).eq('id', orderId);
+    await _client
+        .from('orders')
+        .update({'status': 'accepted', 'delivery_partner_id': userId})
+        .eq('id', orderId);
   }
 
   Future<void> rejectOrder(String orderId) async {
@@ -53,7 +47,11 @@ class OrderService {
   }
 
   Future<Map<String, dynamic>> getOrderDetails(String orderId) async {
-    final response = await _client.from('orders').select().eq('id', orderId).single();
+    final response = await _client
+        .from('orders')
+        .select()
+        .eq('id', orderId)
+        .single();
     return response;
   }
 
@@ -62,7 +60,11 @@ class OrderService {
         .from('orders')
         .stream(primaryKey: ['id'])
         .eq('id', orderId)
-        .map((orders) => orders.isNotEmpty ? Map<String, dynamic>.from(orders.first) : null);
+        .map(
+          (orders) => orders.isNotEmpty
+              ? Map<String, dynamic>.from(orders.first)
+              : null,
+        );
   }
 
   Future<void> updateOrderStatus(String orderId, String status) async {
@@ -80,14 +82,17 @@ class OrderService {
     if (userId == null) throw Exception('User not logged in');
 
     try {
-      final response = await _client.rpc('complete_order', params: {
-        'p_order_id': orderId,
-        'p_partner_id': userId,
-        'p_proof_type': proofType,
-        'p_proof_url': proofUrl,
-        'p_lat': lat,
-        'p_lng': lng,
-      });
+      final response = await _client.rpc(
+        'complete_order',
+        params: {
+          'p_order_id': orderId,
+          'p_partner_id': userId,
+          'p_proof_type': proofType,
+          'p_proof_url': proofUrl,
+          'p_lat': lat,
+          'p_lng': lng,
+        },
+      );
 
       return Map<String, dynamic>.from(response);
     } catch (e) {
@@ -99,7 +104,8 @@ class OrderService {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return;
 
-    await _client.from('orders')
+    await _client
+        .from('orders')
         .update({'last_activity_at': DateTime.now().toIso8601String()})
         .eq('delivery_partner_id', userId)
         .eq('status', 'accepted');
@@ -124,17 +130,29 @@ class OrderService {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return Stream.value(null);
 
-    final activeStatuses = ['assigned', 'accepted', 'picked_up', 'on_the_way', 'delivered'];
+    final activeStatuses = [
+      'assigned',
+      'accepted',
+      'picked_up',
+      'on_the_way',
+      'delivered',
+    ];
     return _client
         .from('orders')
         .stream(primaryKey: ['id'])
         .eq('delivery_partner_id', userId)
         .order('created_at', ascending: false)
         .map((orders) {
-          final activeOrders = orders.where((order) => 
-            activeStatuses.contains(order['status']?.toString().toLowerCase())
-          ).toList();
-          return activeOrders.isNotEmpty ? Map<String, dynamic>.from(activeOrders.first) : null;
+          final activeOrders = orders
+              .where(
+                (order) => activeStatuses.contains(
+                  order['status']?.toString().toLowerCase(),
+                ),
+              )
+              .toList();
+          return activeOrders.isNotEmpty
+              ? Map<String, dynamic>.from(activeOrders.first)
+              : null;
         });
   }
 
@@ -162,17 +180,25 @@ class OrderService {
         .eq('delivery_partner_id', userId)
         .order('created_at', ascending: false);
 
-    final List<Map<String, dynamic>> allOrders = List<Map<String, dynamic>>.from(response);
+    final List<Map<String, dynamic>> allOrders =
+        List<Map<String, dynamic>>.from(response);
 
     final activeStatuses = ['accepted', 'picked_up', 'on_the_way', 'delivered'];
     final pastStatuses = ['completed', 'cancelled'];
 
-    final activeOrders = allOrders.where((order) => activeStatuses.contains(order['status'].toString().toLowerCase())).toList();
-    final pastOrders = allOrders.where((order) => pastStatuses.contains(order['status'].toString().toLowerCase())).toList();
+    final activeOrders = allOrders
+        .where(
+          (order) =>
+              activeStatuses.contains(order['status'].toString().toLowerCase()),
+        )
+        .toList();
+    final pastOrders = allOrders
+        .where(
+          (order) =>
+              pastStatuses.contains(order['status'].toString().toLowerCase()),
+        )
+        .toList();
 
-    return {
-      'active': activeOrders,
-      'past': pastOrders,
-    };
+    return {'active': activeOrders, 'past': pastOrders};
   }
 }
