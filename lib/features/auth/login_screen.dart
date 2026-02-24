@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pharmaco_delivery_partner/app/routes/app_routes.dart';
 import 'package:pharmaco_delivery_partner/app/widgets/custom_button.dart';
 import 'package:pharmaco_delivery_partner/core/services/auth_service.dart';
+import 'package:pharmaco_delivery_partner/core/services/fcm_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -62,6 +63,8 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       if (mounted) {
         if (user?.emailConfirmedAt != null) {
+          // Trigger welcome/login notification
+          FCMService.sendWelcomeNotification('login');
           Navigator.pushNamedAndRemoveUntil(context, AppRoutes.home, (route) => false);
         } else {
           Navigator.pushReplacementNamed(context, AppRoutes.emailVerification, arguments: _emailController.text.trim());

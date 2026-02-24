@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pharmaco_delivery_partner/app/routes/app_routes.dart';
 import 'package:pharmaco_delivery_partner/app/widgets/custom_button.dart';
 import 'package:pharmaco_delivery_partner/core/services/auth_service.dart';
+import 'package:pharmaco_delivery_partner/core/services/fcm_service.dart';
 
 enum PasswordStrength {
   Weak,
@@ -79,6 +80,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
         fullName: _fullNameController.text.trim(),
       );
       if (mounted) {
+        // Trigger welcome notification
+        FCMService.sendWelcomeNotification('registration');
         Navigator.pushReplacementNamed(context, AppRoutes.emailVerification, arguments: _emailController.text.trim());
       }
     } catch (e) {

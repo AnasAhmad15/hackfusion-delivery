@@ -5,10 +5,14 @@ import 'package:pharmaco_delivery_partner/core/services/supabase_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:pharmaco_delivery_partner/features/navigation/main_navigation_screen.dart';
 import 'package:pharmaco_delivery_partner/features/auth/login_screen.dart';
+import 'package:pharmaco_delivery_partner/core/services/fcm_service.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   await SupabaseService.initialize();
+  await FCMService.initialize();
   runApp(const PharmaCoApp());
 }
 
