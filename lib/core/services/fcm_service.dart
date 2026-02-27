@@ -162,4 +162,21 @@ class FCMService {
   }
 
   static Future<void> _saveTokenToSupabase(String token) async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) {
+      print('FCMService: No user logged in, skipping token save');
+      return;
+    }
+
+    try {
+      print('FCMService: Saving token to Supabase for user: ${user.id}');
+      await Supabase.instance.client.from('delivery_partners').update({
+        'fcm_token': token,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', user.id);
+      print('FCMService: Token saved successfully');
+    } catch (e) {
+      print('FCMService: Error saving token to Supabase: $e');
+    }
+  }
 }
