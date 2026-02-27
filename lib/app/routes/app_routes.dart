@@ -27,6 +27,8 @@ import 'package:pharmaco_delivery_partner/features/navigation/main_navigation_sc
 import 'package:pharmaco_delivery_partner/core/models/onboarding_profile.dart';
 import 'package:pharmaco_delivery_partner/app/routes/slide_route.dart';
 
+import 'package:pharmaco_delivery_partner/features/order/confirm_delivery_screen.dart';
+
 class AppRoutes {
   static const String login = '/';
   static const String home = '/home';
@@ -57,11 +59,18 @@ class AppRoutes {
   static const String editVehicleDetails = '/profile/edit-vehicle';
   static const String editDeliveryArea = '/profile/edit-area';
 
+  static const String confirmDelivery = '/order/confirm-delivery';
+
   static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
       case editPersonalDetails:
-        final profile = settings.arguments as OnboardingProfile;
-        return SlideRoute(page: PersonalDetailsScreen(profile: profile, isEditing: true));
+        if (settings.arguments is OnboardingProfile) {
+          final profile = settings.arguments as OnboardingProfile;
+          return SlideRoute(page: PersonalDetailsScreen(profile: profile, isEditing: true));
+        } else {
+          // Fallback for when arguments are not the expected type (e.g. from HomeScreen)
+          return SlideRoute(page: PersonalDetailsScreen(profile: OnboardingProfile(), isEditing: true));
+        }
       case editVehicleDetails:
         final profile = settings.arguments as OnboardingProfile;
         return SlideRoute(page: VehicleDetailsOnboardingScreen(profile: profile, isEditing: true));
@@ -92,7 +101,6 @@ class AppRoutes {
       forgotPassword: (context) => const ForgotPasswordScreen(),
       profile: (context) => const ProfileScreen(),
       documentsVerification: (context) => const DocumentsVerificationScreen(),
-      ratings: (context) => const RatingsScreen(),
       vehicleDetails: (context) => const VehicleDetailsScreen(),
       deliveryAreas: (context) => const DeliveryAreasScreen(),
       security: (context) => const SecurityScreen(),
@@ -117,6 +125,10 @@ class AppRoutes {
       profileSummary: (context) {
         final profile = ModalRoute.of(context)!.settings.arguments as OnboardingProfile;
         return ProfileSummaryScreen(profile: profile);
+      },
+      confirmDelivery: (context) {
+        final order = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+        return ConfirmDeliveryScreen(order: order);
       },
     };
   }

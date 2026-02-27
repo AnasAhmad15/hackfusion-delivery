@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:pharmaco_delivery_partner/core/services/order_service.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:pharmaco_delivery_partner/app/routes/app_routes.dart';
+import 'package:pharmaco_delivery_partner/core/providers/language_provider.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -21,14 +23,15 @@ class _OrdersScreenState extends State<OrdersScreen>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final lp = Provider.of<LanguageProvider>(context);
     return DefaultTabController(
       length: 2,
       child: Column(
         children: [
-          const TabBar(
+          TabBar(
             tabs: [
-              Tab(text: 'Available'),
-              Tab(text: 'My Orders'),
+              Tab(text: lp.translate('available')),
+              Tab(text: lp.translate('my_orders')),
             ],
           ),
           Expanded(
@@ -58,6 +61,7 @@ class __AvailableOrdersListState extends State<_AvailableOrdersList> {
 
   @override
   Widget build(BuildContext context) {
+    final lp = Provider.of<LanguageProvider>(context);
     return Column(
       children: [
         Container(
@@ -72,7 +76,7 @@ class __AvailableOrdersListState extends State<_AvailableOrdersList> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Available orders',
+                      lp.translate('available_orders'),
                       style: TextStyle(
                         color: Colors.blue.shade900,
                         fontSize: 14,
@@ -80,7 +84,7 @@ class __AvailableOrdersListState extends State<_AvailableOrdersList> {
                       ),
                     ),
                     Text(
-                      'Real-time updates active',
+                      lp.translate('real_time_updates'),
                       style: TextStyle(
                         color: Colors.blue.shade700,
                         fontSize: 12,
@@ -131,7 +135,7 @@ class __AvailableOrdersListState extends State<_AvailableOrdersList> {
                       SizedBox(
                         height: MediaQuery.of(context).size.height * 0.12,
                       ),
-                      _buildEmptyAvailableOrders(),
+                      _buildEmptyAvailableOrders(lp),
                     ],
                   );
                 }
@@ -152,7 +156,7 @@ class __AvailableOrdersListState extends State<_AvailableOrdersList> {
     );
   }
 
-  Widget _buildEmptyAvailableOrders() {
+  Widget _buildEmptyAvailableOrders(LanguageProvider lp) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32.0),
@@ -165,13 +169,13 @@ class __AvailableOrdersListState extends State<_AvailableOrdersList> {
               color: Colors.grey.shade300,
             ),
             const SizedBox(height: 16),
-            const Text(
-              'No orders nearby',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Text(
+              lp.translate('no_orders_nearby'),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
-              'We\'ll notify you when new orders appear in your area.',
+              lp.translate('notify_new_orders'),
               style: TextStyle(color: Colors.grey.shade600),
               textAlign: TextAlign.center,
             ),
@@ -189,6 +193,7 @@ class _AvailableOrderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final lp = Provider.of<LanguageProvider>(context);
     final orderService = OrderService();
     final String pharmacyTitle = (order['pharmacy_id'] != null)
         ? 'Pharmacy #${order['pharmacy_id'].toString().substring(0, 8).toUpperCase()}'
@@ -201,8 +206,8 @@ class _AvailableOrderCard extends StatelessWidget {
     final double? distanceMeters = (order['distance_meters'] as num?)
         ?.toDouble();
     final String distanceText = distanceMeters != null
-        ? '${(distanceMeters / 1000).toStringAsFixed(1)} km away'
-        : 'Nearby';
+        ? '${(distanceMeters / 1000).toStringAsFixed(1)} ${lp.translate('km_away')}'
+        : lp.translate('nearby');
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16.0),
@@ -254,9 +259,9 @@ class _AvailableOrderCard extends StatelessWidget {
                         color: Colors.red.shade50,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Text(
-                        'URGENT',
-                        style: TextStyle(
+                      child: Text(
+                        lp.translate('urgent'),
+                        style: const TextStyle(
                           color: Colors.red,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
@@ -291,9 +296,9 @@ class _AvailableOrderCard extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Estimated Payout',
-                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                      Text(
+                        lp.translate('estimated_payout'),
+                        style: const TextStyle(color: Colors.grey, fontSize: 12),
                       ),
                       Text(
                         '₹$amount',
@@ -309,10 +314,21 @@ class _AvailableOrderCard extends StatelessWidget {
                       await orderService.acceptOrder(order['id']);
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Order accepted!'),
+                          SnackBar(
+                            content: Text(lp.translate('order_accepted')),
                             backgroundColor: Colors.green,
                           ),
+                        );
+                        
+                        // Explicitly set status to 'accepted' for the redirected screen
+                        final acceptedOrder = Map<String, dynamic>.from(order);
+                        acceptedOrder['status'] = 'accepted';
+
+                        // Redirect to Live Delivery Screen immediately after accepting
+                        Navigator.pushNamed(
+                          context,
+                          AppRoutes.liveDelivery,
+                          arguments: acceptedOrder,
                         );
                       }
                     },
@@ -325,7 +341,7 @@ class _AvailableOrderCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text('ACCEPT'),
+                    child: Text(lp.translate('accept')),
                   ),
                 ],
               ),
@@ -347,6 +363,7 @@ class __MyOrdersListState extends State<_MyOrdersList> {
 
   @override
   Widget build(BuildContext context) {
+    final lp = Provider.of<LanguageProvider>(context);
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _orderService.getMyOrders(),
       builder: (context, snapshot) {
@@ -359,12 +376,14 @@ class __MyOrdersListState extends State<_MyOrdersList> {
 
         final allOrders = snapshot.data ?? [];
         if (allOrders.isEmpty) {
-          return _buildEmptyState();
+          return _buildEmptyState(lp);
         }
 
         final activeOrders = allOrders
             .where(
               (o) => [
+                'ready',
+                'preparing',
                 'accepted',
                 'picked_up',
                 'delivered',
@@ -385,14 +404,14 @@ class __MyOrdersListState extends State<_MyOrdersList> {
           padding: const EdgeInsets.all(16.0),
           children: [
             if (activeOrders.isNotEmpty) ...[
-              _buildSectionHeader('Active Orders'),
+              _buildSectionHeader(lp.translate('active_orders')),
               ...activeOrders.map(
                 (order) => _OrderListItem(order: order, isActive: true),
               ),
               const SizedBox(height: 24),
             ],
             if (pastOrders.isNotEmpty) ...[
-              _buildSectionHeader('Past History'),
+              _buildSectionHeader(lp.translate('past_history')),
               ...pastOrders.map(
                 (order) => _OrderListItem(order: order, isActive: false),
               ),
@@ -418,7 +437,7 @@ class __MyOrdersListState extends State<_MyOrdersList> {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(LanguageProvider lp) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -429,13 +448,13 @@ class __MyOrdersListState extends State<_MyOrdersList> {
             color: Colors.grey.shade300,
           ),
           const SizedBox(height: 16),
-          const Text(
-            'No orders found',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          Text(
+            lp.translate('no_orders_found'),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Text(
-            'Your assigned and past orders will appear here',
+            lp.translate('my_orders_empty_desc'),
             style: TextStyle(color: Colors.grey.shade600),
           ),
         ],
@@ -536,7 +555,7 @@ class _OrderCard extends StatelessWidget {
 
   const _OrderCard({required this.order});
 
-  Future<void> _launchMapsNavigation(BuildContext context) async {
+  Future<void> _launchMapsNavigation(BuildContext context, LanguageProvider lp) async {
     final lat = order['delivery_lat'];
     final lng = order['delivery_lng'];
 
@@ -549,11 +568,11 @@ class _OrderCard extends StatelessWidget {
       } else {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Could not open maps.')));
+        ).showSnackBar(SnackBar(content: Text(lp.translate('could_not_open_maps'))));
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Delivery location not available.')),
+        SnackBar(content: Text(lp.translate('delivery_loc_not_available'))),
       );
     }
   }
@@ -561,6 +580,7 @@ class _OrderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final lp = Provider.of<LanguageProvider>(context);
     final time = order['created_at'] != null
         ? DateFormat(
             'MMM d, h:mm a',
@@ -581,13 +601,13 @@ class _OrderCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Order from ${order['customer_name'] ?? 'N/A'}',
+                  '${lp.translate('order_from')} ${order['customer_name'] ?? 'N/A'}',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 Text(
-                  '\$${(order['payout'] as num?)?.toDouble() ?? 0.0}',
+                  '₹${(order['total_amount'] as num?)?.toDouble() ?? 0.0}',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: theme.primaryColor,
@@ -601,7 +621,7 @@ class _OrderCard extends StatelessWidget {
                 _StatusBadge(status: status),
                 const SizedBox(width: 8),
                 GestureDetector(
-                  onTap: () => _showStatusExplanation(context),
+                  onTap: () => _showStatusExplanation(context, lp),
                   child: Icon(
                     Icons.info_outline,
                     size: 20,
@@ -622,9 +642,9 @@ class _OrderCard extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: () => _launchMapsNavigation(context),
+                  onPressed: () => _launchMapsNavigation(context, lp),
                   icon: const Icon(Icons.navigation_outlined),
-                  label: const Text('NAVIGATE TO DELIVERY'),
+                  label: Text(lp.translate('navigate_to_delivery')),
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
@@ -663,6 +683,7 @@ class _StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _getStatusColor();
+    final lp = Provider.of<LanguageProvider>(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
@@ -671,7 +692,7 @@ class _StatusBadge extends StatelessWidget {
         border: Border.all(color: color.withOpacity(0.5)),
       ),
       child: Text(
-        status.replaceAll('_', ' ').toUpperCase(),
+        lp.translate(status.toLowerCase()).toUpperCase(),
         style: TextStyle(
           color: color,
           fontSize: 10,
@@ -683,7 +704,7 @@ class _StatusBadge extends StatelessWidget {
   }
 }
 
-void _showStatusExplanation(BuildContext context) {
+void _showStatusExplanation(BuildContext context, LanguageProvider lp) {
   showModalBottomSheet(
     context: context,
     shape: const RoundedRectangleBorder(
@@ -697,7 +718,7 @@ void _showStatusExplanation(BuildContext context) {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Order Statuses',
+              lp.translate('order_statuses'),
               style: Theme.of(
                 context,
               ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
@@ -705,20 +726,20 @@ void _showStatusExplanation(BuildContext context) {
             const SizedBox(height: 16),
             _buildStatusExplanationRow(
               Colors.orange,
-              'Pending',
-              'You have accepted this order and need to complete the delivery.',
+              lp.translate('pending'),
+              lp.translate('pending_status_desc'),
             ),
             const Divider(height: 24),
             _buildStatusExplanationRow(
               Colors.green,
-              'Completed',
-              'You have successfully completed this delivery.',
+              lp.translate('completed'),
+              lp.translate('completed_status_desc'),
             ),
             const Divider(height: 24),
             _buildStatusExplanationRow(
               Colors.red,
-              'Cancelled',
-              'This order was cancelled by the customer or the system.',
+              lp.translate('cancelled'),
+              lp.translate('cancelled_status_desc'),
             ),
           ],
         ),
@@ -755,6 +776,7 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lp = Provider.of<LanguageProvider>(context);
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: ListView(
@@ -763,14 +785,14 @@ class _EmptyState extends StatelessWidget {
           const Icon(Icons.receipt_long, size: 100, color: Colors.grey),
           const SizedBox(height: 16),
           Text(
-            isActiveTab ? 'No Active Orders' : 'No Past Orders',
+            isActiveTab ? lp.translate('no_active_orders') : lp.translate('no_past_orders'),
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           Text(
             isActiveTab
-                ? 'Go online on the dashboard to start receiving orders.'
-                : 'Your completed or cancelled orders will appear here.',
+                ? lp.translate('go_online_to_receive')
+                : lp.translate('past_orders_appear_here'),
             textAlign: TextAlign.center,
             style: Theme.of(
               context,

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:pharmaco_delivery_partner/core/services/profile_service.dart';
 import 'package:pharmaco_delivery_partner/core/services/auth_service.dart';
 import 'package:pharmaco_delivery_partner/app/routes/app_routes.dart';
 import 'package:pharmaco_delivery_partner/core/models/onboarding_profile.dart';
+import 'package:pharmaco_delivery_partner/core/providers/language_provider.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -45,6 +47,7 @@ class _ProfileScreenState extends State<ProfileScreen> with AutomaticKeepAliveCl
   Widget build(BuildContext context) {
     super.build(context);
     final theme = Theme.of(context);
+    final languageProvider = Provider.of<LanguageProvider>(context);
 
     return StreamBuilder<Map<String, dynamic>>(
       stream: _profileService.getProfileStream(),
@@ -58,7 +61,10 @@ class _ProfileScreenState extends State<ProfileScreen> with AutomaticKeepAliveCl
         return Scaffold(
           backgroundColor: Colors.white,
           appBar: AppBar(
-            title: const Text('Profile', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+            title: Text(
+              languageProvider.translate('profile'),
+              style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+            ),
             backgroundColor: Colors.white,
             elevation: 0,
             centerTitle: false,
@@ -70,13 +76,14 @@ class _ProfileScreenState extends State<ProfileScreen> with AutomaticKeepAliveCl
               children: [
                 _buildProfileHeader(theme, profileData),
                 const SizedBox(height: 24),
-                _buildPersonalInfoCard(theme, profileData),
+                _buildPersonalInfoCard(theme, profileData, languageProvider),
                 const SizedBox(height: 24),
                 _buildSectionGroup(
                   'ACCOUNT',
                   [
                     _buildMenuTile(Icons.description_outlined, 'Documents & Verification', () => Navigator.pushNamed(context, AppRoutes.documentsVerification)),
                     _buildMenuTile(Icons.security_outlined, 'Security & Login', () => Navigator.pushNamed(context, AppRoutes.security)),
+                    _buildMenuTile(Icons.language, languageProvider.translate('change_language'), () => _showLanguageDialog(context, languageProvider)),
                   ],
                 ),
                 const SizedBox(height: 24),
@@ -98,7 +105,7 @@ class _ProfileScreenState extends State<ProfileScreen> with AutomaticKeepAliveCl
                   ],
                 ),
                 const SizedBox(height: 40),
-                _buildLogoutButton(theme),
+                _buildLogoutButton(theme, languageProvider),
                 const SizedBox(height: 20),
                 Center(
                   child: Text(
@@ -112,6 +119,44 @@ class _ProfileScreenState extends State<ProfileScreen> with AutomaticKeepAliveCl
           ),
         );
       },
+    );
+  }
+
+  void _showLanguageDialog(BuildContext context, LanguageProvider provider) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(provider.translate('select_language')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Text('English'),
+              trailing: provider.currentLocale.languageCode == 'en' ? const Icon(Icons.check, color: Colors.blue) : null,
+              onTap: () {
+                provider.setLanguage('en');
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              title: const Text('हिंदी (Hindi)'),
+              trailing: provider.currentLocale.languageCode == 'hi' ? const Icon(Icons.check, color: Colors.blue) : null,
+              onTap: () {
+                provider.setLanguage('hi');
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              title: const Text('मराठी (Marathi)'),
+              trailing: provider.currentLocale.languageCode == 'mr' ? const Icon(Icons.check, color: Colors.blue) : null,
+              onTap: () {
+                provider.setLanguage('mr');
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -161,7 +206,7 @@ class _ProfileScreenState extends State<ProfileScreen> with AutomaticKeepAliveCl
     );
   }
 
-  Widget _buildPersonalInfoCard(ThemeData theme, Map<String, dynamic> profileData) {
+  Widget _buildPersonalInfoCard(ThemeData theme, Map<String, dynamic> profileData, LanguageProvider lp) {
     final int? age = profileData['date_of_birth'] != null 
         ? _calculateAge(DateTime.parse(profileData['date_of_birth'])) 
         : null;
@@ -285,7 +330,7 @@ class _ProfileScreenState extends State<ProfileScreen> with AutomaticKeepAliveCl
   Widget _buildSectionGroup(String title, List<Widget> children) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min, // Added safety for layout
+      mainAxisSize: MainAxisSize.min,
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 12),
@@ -301,7 +346,7 @@ class _ProfileScreenState extends State<ProfileScreen> with AutomaticKeepAliveCl
             border: Border.all(color: Colors.grey.shade100),
           ),
           child: Column(
-            mainAxisSize: MainAxisSize.min, // Standardize column height
+            mainAxisSize: MainAxisSize.min,
             children: children,
           ),
         ),
@@ -319,13 +364,13 @@ class _ProfileScreenState extends State<ProfileScreen> with AutomaticKeepAliveCl
     );
   }
 
-  Widget _buildLogoutButton(ThemeData theme) {
+  Widget _buildLogoutButton(ThemeData theme, LanguageProvider lp) {
     return SizedBox(
       width: double.infinity,
       child: TextButton.icon(
         onPressed: _showLogoutConfirmation,
         icon: const Icon(Icons.logout, color: Colors.red, size: 20),
-        label: const Text('LOGOUT', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
+        label: Text(lp.translate('logout'), style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
         style: TextButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.red.withOpacity(0.2))),
@@ -340,15 +385,10 @@ class _ProfileScreenState extends State<ProfileScreen> with AutomaticKeepAliveCl
       AppRoutes.editPersonalDetails, 
       arguments: _createProfileForEditing(profileData),
     );
-    
-    // Always refresh if we returned from the edit screen, 
-    // even if result wasn't explicitly 'true', just to be safe.
     await _fetchProfile(); 
   }
 
   OnboardingProfile _createProfileForEditing(Map<String, dynamic> profileData) {
-    // Debug the data being used for editing
-    debugPrint('ProfileScreen: Creating editing profile from: ${profileData['full_name']}');
     return OnboardingProfile(
       fullName: profileData['full_name'] as String?,
       phone: profileData['phone'] as String?,
@@ -363,6 +403,7 @@ class _ProfileScreenState extends State<ProfileScreen> with AutomaticKeepAliveCl
   }
 
   void _showLogoutConfirmation() {
+    final lp = Provider.of<LanguageProvider>(context, listen: false);
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
@@ -371,7 +412,7 @@ class _ProfileScreenState extends State<ProfileScreen> with AutomaticKeepAliveCl
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Logout', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            Text(lp.translate('logout'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             const Text('Are you sure you want to exit the app? You will need to login again to receive orders.'),
             const SizedBox(height: 24),
@@ -391,7 +432,7 @@ class _ProfileScreenState extends State<ProfileScreen> with AutomaticKeepAliveCl
                       if (mounted) Navigator.pushNamedAndRemoveUntil(context, AppRoutes.login, (r) => false);
                     },
                     style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-                    child: const Text('LOGOUT'),
+                    child: Text(lp.translate('logout')),
                   ),
                 ),
               ],

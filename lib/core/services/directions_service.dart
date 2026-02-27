@@ -3,6 +3,18 @@ import 'dart:convert';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 
+class RouteInfo {
+  final String distance;
+  final String duration;
+  final List<LatLng> points;
+
+  RouteInfo({
+    required this.distance,
+    required this.duration,
+    required this.points,
+  });
+}
+
 class DirectionsService {
   DirectionsService({required this.apiKey, http.Client? httpClient})
       : _httpClient = httpClient ?? http.Client();
@@ -10,7 +22,7 @@ class DirectionsService {
   final String apiKey;
   final http.Client _httpClient;
 
-  Future<List<LatLng>> getRoutePolyline({
+  Future<RouteInfo?> getRouteInfo({
     required LatLng origin,
     required LatLng destination,
   }) async {
@@ -34,14 +46,35 @@ class DirectionsService {
     }
 
     final routes = payload['routes'] as List<dynamic>;
-    if (routes.isEmpty) return <LatLng>[];
+    if (routes.isEmpty) return null;
 
-    final overview = routes.first as Map<String, dynamic>;
-    final overviewPolyline = overview['overview_polyline'] as Map<String, dynamic>?;
+    final route = routes.first as Map<String, dynamic>;
+    final legs = route['legs'] as List<dynamic>;
+    if (legs.isEmpty) return null;
+
+    final leg = legs.first as Map<String, dynamic>;
+    final distance = leg['distance']['text'] as String;
+    final duration = leg['duration']['text'] as String;
+
+    final overviewPolyline = route['overview_polyline'] as Map<String, dynamic>?;
     final encoded = overviewPolyline?['points'] as String?;
-    if (encoded == null || encoded.isEmpty) return <LatLng>[];
+    if (encoded == null || encoded.isEmpty) return null;
 
-    return _decodePolyline(encoded);
+    final points = _decodePolyline(encoded);
+
+    return RouteInfo(
+      distance: distance,
+      duration: duration,
+      points: points,
+    );
+  }
+
+  Future<List<LatLng>> getRoutePolyline({
+    required LatLng origin,
+    required LatLng destination,
+  }) async {
+    final info = await getRouteInfo(origin: origin, destination: destination);
+    return info?.points ?? <LatLng>[];
   }
 
   List<LatLng> _decodePolyline(String encoded) {

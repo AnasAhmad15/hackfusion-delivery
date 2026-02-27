@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:pharmaco_delivery_partner/core/services/ratings_service.dart';
 import 'package:intl/intl.dart';
+import 'package:pharmaco_delivery_partner/core/providers/language_provider.dart';
 
 class RatingsScreen extends StatefulWidget {
   const RatingsScreen({super.key});
@@ -50,36 +52,52 @@ class _RatingsScreenState extends State<RatingsScreen> with TickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
+    final lp = Provider.of<LanguageProvider>(context);
     return FutureBuilder<Map<String, dynamic>>(
       future: _ratingsDataFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const _RatingsSkeleton();
         }
+        
         if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
-        }
-        if (!snapshot.hasData || snapshot.data!['summary'] == null) {
-          return _EmptyState(onRefresh: _refreshData);
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                const SizedBox(height: 16),
+                Text('Error: ${snapshot.error}'),
+                TextButton(
+                  onPressed: _refreshData,
+                  child: Text(lp.translate('retry')),
+                ),
+              ],
+            ),
+          );
         }
 
-        final data = snapshot.data!;
+        final data = snapshot.data ?? {'summary': {'average_rating': 0.0, 'total_ratings': 0}, 'feedback': []};
         final summary = data['summary'] as Map<String, dynamic>? ?? {};
         final feedback = data['feedback'] as List<Map<String, dynamic>>? ?? [];
         final totalRatings = (summary['total_ratings'] as int?) ?? 0;
+
+        if (totalRatings == 0 && feedback.isEmpty) {
+          return _EmptyState(onRefresh: _refreshData);
+        }
 
         return RefreshIndicator(
           onRefresh: _refreshData,
           child: ListView(
             padding: const EdgeInsets.all(16.0),
             children: [
-              _buildSummaryCard(totalRatings),
+              _buildSummaryCard(totalRatings, lp),
               const SizedBox(height: 24),
-              _buildRatingInfoCard(),
+              _buildRatingInfoCard(lp),
               const SizedBox(height: 24),
-              _buildImprovementTipsCard(),
+              _buildImprovementTipsCard(lp),
               const SizedBox(height: 32),
-              _buildFeedbackSection(feedback),
+              _buildFeedbackSection(feedback, lp),
             ],
           ),
         );
@@ -87,7 +105,7 @@ class _RatingsScreenState extends State<RatingsScreen> with TickerProviderStateM
     );
   }
 
-  Widget _buildSummaryCard(int totalRatings) {
+  Widget _buildSummaryCard(int totalRatings, LanguageProvider lp) {
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -136,7 +154,7 @@ class _RatingsScreenState extends State<RatingsScreen> with TickerProviderStateM
                 children: [
                   FittedBox(
                     fit: BoxFit.scaleDown,
-                    child: Text('Total Ratings', style: Theme.of(context).textTheme.titleLarge),
+                    child: Text(lp.translate('total_ratings'), style: Theme.of(context).textTheme.titleLarge),
                   ),
                   const SizedBox(height: 4),
                   FittedBox(
@@ -158,28 +176,28 @@ class _RatingsScreenState extends State<RatingsScreen> with TickerProviderStateM
     );
   }
 
-  Widget _buildFeedbackSection(List<Map<String, dynamic>> feedback) {
+  Widget _buildFeedbackSection(List<Map<String, dynamic>> feedback, LanguageProvider lp) {
     if (feedback.isEmpty) {
       return _EmptyState(onRefresh: _refreshData, isNested: true);
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Customer Feedback', style: Theme.of(context).textTheme.headlineSmall),
+        Text(lp.translate('customer_feedback'), style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 16),
         ListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: feedback.length,
           itemBuilder: (context, index) {
-            return _FeedbackCard(item: feedback[index]);
+            return _FeedbackCard(item: feedback[index], lp: lp);
           },
         ),
       ],
     );
   }
 
-  Widget _buildRatingInfoCard() {
+  Widget _buildRatingInfoCard(LanguageProvider lp) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -191,7 +209,7 @@ class _RatingsScreenState extends State<RatingsScreen> with TickerProviderStateM
             const SizedBox(width: 16),
             Expanded(
               child: Text(
-                'Your rating is an average of the last 100 customer ratings. High ratings can lead to more orders.',
+                lp.translate('rating_info'),
                 style: TextStyle(color: Colors.grey[600]),
               ),
             ),
@@ -201,7 +219,7 @@ class _RatingsScreenState extends State<RatingsScreen> with TickerProviderStateM
     );
   }
 
-  Widget _buildImprovementTipsCard() {
+  Widget _buildImprovementTipsCard(LanguageProvider lp) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -210,13 +228,13 @@ class _RatingsScreenState extends State<RatingsScreen> with TickerProviderStateM
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('How to Improve Your Rating', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+            Text(lp.translate('how_to_improve'), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            _buildTipRow(Icons.timer, 'Be on Time', 'Timely deliveries are key to customer satisfaction.'),
+            _buildTipRow(Icons.timer, lp.translate('be_on_time'), lp.translate('be_on_time_desc')),
             const Divider(height: 24),
-            _buildTipRow(Icons.chat_bubble_outline, 'Communicate Clearly', 'Keep the customer updated on their order status.'),
+            _buildTipRow(Icons.chat_bubble_outline, lp.translate('communicate_clearly'), lp.translate('communicate_clearly_desc')),
             const Divider(height: 24),
-            _buildTipRow(Icons.sentiment_satisfied_alt, 'Be Professional', 'A friendly and professional attitude goes a long way.'),
+            _buildTipRow(Icons.sentiment_satisfied_alt, lp.translate('be_professional'), lp.translate('be_professional_desc')),
           ],
         ),
       ),
@@ -244,7 +262,8 @@ class _RatingsScreenState extends State<RatingsScreen> with TickerProviderStateM
 
 class _FeedbackCard extends StatelessWidget {
   final Map<String, dynamic> item;
-  const _FeedbackCard({required this.item});
+  final LanguageProvider lp;
+  const _FeedbackCard({required this.item, required this.lp});
 
   @override
   Widget build(BuildContext context) {
@@ -267,7 +286,7 @@ class _FeedbackCard extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Customer', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    Text(lp.translate('customer'), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                     Text(date, style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600])),
                   ],
                 ),
@@ -278,7 +297,7 @@ class _FeedbackCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            Text(item['feedback'] as String? ?? 'No comment', style: theme.textTheme.bodyLarge),
+            Text(item['feedback'] as String? ?? lp.translate('no_comment'), style: theme.textTheme.bodyLarge),
           ],
         ),
       ),
@@ -293,14 +312,15 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lp = Provider.of<LanguageProvider>(context);
     final content = Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         if (isNested) const SizedBox(height: 48),
         const Icon(Icons.star_outline, size: 100, color: Colors.grey),
         const SizedBox(height: 16),
-        Text('No ratings yet', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall),
-        Text('Your customer ratings will appear here.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey[600])),
+        Text(lp.translate('no_ratings_yet'), textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall),
+        Text(lp.translate('customer_ratings_appear_here'), textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey[600])),
       ],
     );
 

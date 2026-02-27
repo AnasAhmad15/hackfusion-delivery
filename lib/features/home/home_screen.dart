@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:pharmaco_delivery_partner/core/models/onboarding_profile.dart';
 import 'package:pharmaco_delivery_partner/core/services/profile_service.dart';
 import 'package:pharmaco_delivery_partner/core/services/order_service.dart';
 import 'package:pharmaco_delivery_partner/app/routes/app_routes.dart';
 import 'package:pharmaco_delivery_partner/core/services/earnings_service.dart';
 import 'package:pharmaco_delivery_partner/core/services/documents_service.dart';
+import 'package:pharmaco_delivery_partner/core/providers/language_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   final void Function(int) onTabChange;
@@ -48,13 +51,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
       }
     } catch (e) {
       if (mounted) {
+        final lp = Provider.of<LanguageProvider>(context, listen: false);
         setState(() => _isLoadingProfile = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to load profile: ${e.toString()}'),
+            content: Text('${lp.translate('failed_to_load_profile')}: ${e.toString()}'),
             backgroundColor: Colors.red,
             action: SnackBarAction(
-              label: 'RETRY',
+              label: lp.translate('retry'),
               textColor: Colors.white,
               onPressed: _fetchInitialState,
             ),
@@ -65,15 +69,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
   }
 
   void _toggleAvailability(bool hasActiveOrder) async {
+    final lp = Provider.of<LanguageProvider>(context, listen: false);
     if (!_isVerified) {
-      _showVerificationRequiredSheet();
+      _showVerificationRequiredSheet(lp);
       return;
     }
 
     if (hasActiveOrder && _isAvailable) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cannot go offline while you have an active delivery.'),
+        SnackBar(
+          content: Text(lp.translate('cannot_go_offline_active_order')),
           backgroundColor: Colors.orange,
         ),
       );
@@ -100,7 +105,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
     }
   }
 
-  void _showVerificationRequiredSheet() {
+  void _showVerificationRequiredSheet(LanguageProvider lp) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
@@ -111,15 +116,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
           children: [
             const Icon(Icons.verified_user_outlined, size: 64, color: Colors.orange),
             const SizedBox(height: 16),
-            const Text(
-              'Verification Pending',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            Text(
+              lp.translate('verification_pending'),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Complete your document verification to start delivering and earning with PharmaCo.',
+            Text(
+              lp.translate('complete_verification_long_desc'),
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey),
+              style: const TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 24),
             SizedBox(
@@ -133,7 +138,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text('COMPLETE VERIFICATION'),
+                child: Text(lp.translate('complete_verification')),
               ),
             ),
           ],
@@ -144,9 +149,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
 
   void _listenForIncomingOrders() {
     _orderSubscription?.cancel();
-    _orderSubscription = _orderService.getIncomingOrders().listen((orders) {
+    _orderSubscription = _orderService.getIncomingOrders().listen((orders) async {
       if (orders.isNotEmpty && _isAvailable && mounted) {
-        Navigator.pushNamed(context, AppRoutes.incomingOrder, arguments: orders.first);
+        // Check if there is already an active order before showing the incoming order screen
+        final activeOrder = await _orderService.getActiveOrderStream().first;
+        if (activeOrder == null && mounted) {
+          Navigator.pushNamed(context, AppRoutes.incomingOrder, arguments: orders.first);
+        } else {
+          debugPrint('HomeScreen: Skipping incoming order because an active order already exists.');
+        }
       }
     });
   }
@@ -164,6 +175,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
   Widget build(BuildContext context) {
     super.build(context);
     final theme = Theme.of(context);
+    final lp = Provider.of<LanguageProvider>(context);
 
     return StreamBuilder<Map<String, dynamic>>(
       stream: _profileService.getProfileStream(),
@@ -190,16 +202,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
                   child: ListView(
                     padding: const EdgeInsets.all(20.0),
                     children: [
-                      if (!_isVerified) _buildVerificationBanner(theme),
-                      _buildHeader(theme, hasActiveOrder),
+                      if (!_isVerified) _buildVerificationBanner(theme, lp),
+                      _buildHeader(theme, hasActiveOrder, lp),
                       const SizedBox(height: 24),
                       if (hasActiveOrder) ...[
-                        _buildActiveDeliveryCard(theme, activeOrder),
+                        _buildActiveDeliveryCard(theme, activeOrder, lp),
                         const SizedBox(height: 24),
                       ],
-                      _buildStatsGrid(theme),
+                      _buildStatsGrid(theme, lp),
                       const SizedBox(height: 24),
-                      _buildRecentActivitySection(theme),
+                      _buildRecentActivitySection(theme, lp),
                     ],
                   ),
                 ),
@@ -211,7 +223,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
     );
   }
 
-  Widget _buildVerificationBanner(ThemeData theme) {
+  Widget _buildVerificationBanner(ThemeData theme, LanguageProvider lp) {
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
       padding: const EdgeInsets.all(16),
@@ -228,12 +240,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Verification Required',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.orange),
+                Text(
+                  lp.translate('verification_required'),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.orange),
                 ),
                 Text(
-                  'Complete verification to start delivering.',
+                  lp.translate('complete_verification_desc'),
                   style: TextStyle(fontSize: 12, color: Colors.orange.shade800),
                 ),
               ],
@@ -241,14 +253,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
           ),
           TextButton(
             onPressed: () => Navigator.pushNamed(context, AppRoutes.documentsVerification),
-            child: const Text('COMPLETE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            child: Text(lp.translate('complete').toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildHeader(ThemeData theme, bool hasActiveOrder) {
+  Widget _buildHeader(ThemeData theme, bool hasActiveOrder, LanguageProvider lp) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -256,14 +268,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              _isAvailable ? 'Online' : 'Offline',
+              _isAvailable ? lp.translate('online') : lp.translate('offline'),
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: _isAvailable ? Colors.green : Colors.grey,
               ),
             ),
             Text(
-              _isAvailable ? 'Waiting for orders...' : 'Go online to start earning',
+              _isAvailable ? lp.translate('waiting_for_orders') : lp.translate('go_online_to_earn'),
               style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
             ),
           ],
@@ -273,14 +285,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
           activeColor: Colors.green,
           onChanged: (_) => _isProfileComplete 
               ? _toggleAvailability(hasActiveOrder) 
-              : _promptToCompleteProfile(),
+              : _promptToCompleteProfile(lp),
         ),
       ],
     );
   }
 
-  Widget _buildActiveDeliveryCard(ThemeData theme, Map<String, dynamic> order) {
-    final status = (order['status'] as String? ?? 'assigned').replaceAll('_', ' ').toUpperCase();
+  Widget _buildActiveDeliveryCard(ThemeData theme, Map<String, dynamic> order, LanguageProvider lp) {
+    final statusKey = (order['status'] as String? ?? 'assigned').toLowerCase();
+    final status = lp.translate(statusKey).toUpperCase();
     
     return Container(
       decoration: BoxDecoration(
@@ -307,9 +320,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'ACTIVE DELIVERY',
-                      style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                    Text(
+                      lp.translate('active_delivery'),
+                      style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2),
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -337,13 +350,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 16),
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.directions_run, color: Colors.white, size: 18),
-                    SizedBox(width: 8),
-                    Text('Tap to view details & navigate', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
-                    Spacer(),
-                    Icon(Icons.arrow_forward_ios, color: Colors.white, size: 14),
+                    const Icon(Icons.directions_run, color: Colors.white, size: 18),
+                    const SizedBox(width: 8),
+                    Text(lp.translate('tap_to_view_details'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+                    const Spacer(),
+                    const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 14),
                   ],
                 ),
               ],
@@ -354,7 +367,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
     );
   }
 
-  Widget _buildStatsGrid(ThemeData theme) {
+  Widget _buildStatsGrid(ThemeData theme, LanguageProvider lp) {
     return GridView.count(
       crossAxisCount: 2,
       shrinkWrap: true,
@@ -365,7 +378,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
       children: [
         _buildStatCard(
           theme,
-          'Today\'s Earnings',
+          lp.translate('todays_earnings'),
           _earningsService.getTodaysEarningsStream(),
           Icons.account_balance_wallet_outlined,
           Colors.blue,
@@ -373,7 +386,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
         ),
         _buildStatCard(
           theme,
-          'Completed',
+          lp.translate('completed'),
           _orderService.getCompletedDeliveriesCount(),
           Icons.check_circle_outline,
           Colors.green,
@@ -426,17 +439,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
     );
   }
 
-  Widget _buildRecentActivitySection(ThemeData theme) {
+  Widget _buildRecentActivitySection(ThemeData theme, LanguageProvider lp) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Recent Activity', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            Text(lp.translate('recent_activity'), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
             TextButton(
               onPressed: () => widget.onTabChange(1),
-              child: const Text('View All'),
+              child: Text(lp.translate('view_all')),
             ),
           ],
         ),
@@ -452,11 +465,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
               Icon(Icons.history, color: Colors.grey[400], size: 48),
               const SizedBox(height: 12),
               Text(
-                'No recent activity to show',
+                lp.translate('no_recent_activity'),
                 style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w500),
               ),
               Text(
-                'Complete orders to see them here',
+                lp.translate('complete_orders_to_see'),
                 style: TextStyle(color: Colors.grey[400], fontSize: 12),
               ),
             ],
@@ -466,13 +479,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
     );
   }
 
-  void _promptToCompleteProfile() {
+  void _promptToCompleteProfile(LanguageProvider lp) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text('Please complete your profile to go online.'),
+        content: Text(lp.translate('complete_profile_to_go_online')),
         action: SnackBarAction(
-          label: 'COMPLETE',
-          onPressed: () => Navigator.pushNamed(context, AppRoutes.editPersonalDetails, arguments: _profileService.getProfile()),
+          label: lp.translate('complete').toUpperCase(),
+          onPressed: () async {
+            final profile = await _profileService.getProfile();
+            if (mounted) {
+              Navigator.pushNamed(
+                context, 
+                AppRoutes.editPersonalDetails, 
+                arguments: OnboardingProfile.fromMap(profile),
+              );
+            }
+          },
         ),
       ),
     );

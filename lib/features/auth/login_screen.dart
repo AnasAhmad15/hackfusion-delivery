@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:pharmaco_delivery_partner/app/routes/app_routes.dart';
 import 'package:pharmaco_delivery_partner/app/widgets/custom_button.dart';
+import 'package:pharmaco_delivery_partner/core/providers/language_provider.dart';
 import 'package:pharmaco_delivery_partner/core/services/auth_service.dart';
 import 'package:pharmaco_delivery_partner/core/services/fcm_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -86,6 +88,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final lp = Provider.of<LanguageProvider>(context);
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -110,21 +113,21 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  Text('Welcome, Partner', style: theme.textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                  Text(lp.translate('welcome_partner'), style: theme.textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold), textAlign: TextAlign.center),
                   const SizedBox(height: 8),
-                  Text('Sign in to your account', style: theme.textTheme.titleMedium?.copyWith(color: Colors.grey[600]), textAlign: TextAlign.center),
+                  Text(lp.translate('sign_in_to_continue'), style: theme.textTheme.titleMedium?.copyWith(color: Colors.grey[600]), textAlign: TextAlign.center),
                   const SizedBox(height: 48),
                   if (_verificationMessage != null) ...[
                     _buildEmailVerificationStatus(),
                     const SizedBox(height: 24),
                   ],
-                  _buildTextField(_emailController, 'Email Address', Icons.email_outlined, keyboardType: TextInputType.emailAddress, validator: (val) => !val!.contains('@') ? 'Please enter a valid email' : null),
+                  _buildTextField(_emailController, lp.translate('email_address'), Icons.email_outlined, keyboardType: TextInputType.emailAddress, validator: (val) => !val!.contains('@') ? lp.translate('invalid_email') : null),
                   const SizedBox(height: 16),
-                  _buildPasswordField(),
+                  _buildPasswordField(lp),
                   const SizedBox(height: 24),
-                  _buildSignInButton(),
+                  _buildSignInButton(lp),
                   const SizedBox(height: 16),
-                  _buildFooterActions(context),
+                  _buildFooterActions(context, lp),
                 ],
               ),
             ),
@@ -148,12 +151,12 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildPasswordField() {
+  Widget _buildPasswordField(LanguageProvider lp) {
     return TextFormField(
       controller: _passwordController,
       obscureText: _obscureText,
       decoration: InputDecoration(
-        labelText: 'Password',
+        labelText: lp.translate('password'),
         prefixIcon: const Icon(Icons.lock_outline),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         floatingLabelBehavior: FloatingLabelBehavior.auto,
@@ -162,13 +165,13 @@ class _LoginScreenState extends State<LoginScreen> {
           onPressed: () => setState(() => _obscureText = !_obscureText),
         ),
       ),
-      validator: (val) => val!.isEmpty ? 'Please enter your password' : null,
+      validator: (val) => val!.isEmpty ? lp.translate('enter_password') : null,
     );
   }
 
-  Widget _buildSignInButton() {
+  Widget _buildSignInButton(LanguageProvider lp) {
     return CustomButton(
-      text: _isLoading ? 'SIGNING IN...' : 'SIGN IN',
+      text: _isLoading ? lp.translate('signing_in') : lp.translate('sign_in'),
       onPressed: (_isFormValid && !_isLoading) ? _signIn : null,
     );
   }
@@ -195,20 +198,20 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildFooterActions(BuildContext context) {
+  Widget _buildFooterActions(BuildContext context, LanguageProvider lp) {
     return Column(
       children: [
         TextButton(
           onPressed: () => Navigator.pushNamed(context, AppRoutes.forgotPassword),
-          child: const Text('Forgot Password?'),
+          child: Text(lp.translate('forgot_password')),
         ),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text("Don't have an account?"),
+            Text(lp.translate('dont_have_account')),
             TextButton(
               onPressed: () => Navigator.pushNamed(context, AppRoutes.signUp),
-              child: const Text('Sign Up'),
+              child: Text(lp.translate('sign_up')),
             ),
           ],
         ),

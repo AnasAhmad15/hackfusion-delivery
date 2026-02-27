@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:pharmaco_delivery_partner/core/services/earnings_service.dart';
 import 'package:pharmaco_delivery_partner/core/services/order_service.dart';
 import 'package:pharmaco_delivery_partner/app/routes/app_routes.dart';
 import 'package:intl/intl.dart';
+import 'package:pharmaco_delivery_partner/core/providers/language_provider.dart';
 
 class EarningsScreen extends StatefulWidget {
   const EarningsScreen({super.key});
@@ -29,12 +31,13 @@ class _EarningsScreenState extends State<EarningsScreen>
   Widget build(BuildContext context) {
     super.build(context);
     final theme = Theme.of(context);
+    final lp = Provider.of<LanguageProvider>(context);
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text(
-          'Earnings',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+        title: Text(
+          lp.translate('earnings'),
+          style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
@@ -45,23 +48,23 @@ class _EarningsScreenState extends State<EarningsScreen>
         child: ListView(
           padding: const EdgeInsets.all(20.0),
           children: [
-            _buildBalanceOverview(theme),
+            _buildBalanceOverview(theme, lp),
             const SizedBox(height: 24),
-            _buildStatsBreakdown(theme),
+            _buildStatsBreakdown(theme, lp),
             const SizedBox(height: 24),
-            _buildWithdrawalActions(theme),
+            _buildWithdrawalActions(theme, lp),
             const SizedBox(height: 32),
-            _buildTransactionHistoryHeader(theme),
-            _buildTransactionHistoryList(theme),
+            _buildTransactionHistoryHeader(theme, lp),
+            _buildTransactionHistoryList(theme, lp),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildBalanceOverview(ThemeData theme) {
-    return FutureBuilder<double>(
-      future: _earningsService.getWalletBalance(),
+  Widget _buildBalanceOverview(ThemeData theme, LanguageProvider lp) {
+    return StreamBuilder<double>(
+      stream: _earningsService.getWalletBalanceStream(),
       builder: (context, snapshot) {
         final balance = snapshot.data ?? 0.0;
         return Container(
@@ -79,9 +82,9 @@ class _EarningsScreenState extends State<EarningsScreen>
           ),
           child: Column(
             children: [
-              const Text(
-                'Available Balance',
-                style: TextStyle(
+              Text(
+                lp.translate('available_balance'),
+                style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
@@ -106,14 +109,14 @@ class _EarningsScreenState extends State<EarningsScreen>
                   color: Colors.white24,
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.timer_outlined, color: Colors.white, size: 14),
-                    SizedBox(width: 6),
+                    const Icon(Icons.timer_outlined, color: Colors.white, size: 14),
+                    const SizedBox(width: 6),
                     Text(
-                      'Next settlement in 14h',
-                      style: TextStyle(
+                      '${lp.translate('next_settlement')} 14h',
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
@@ -129,19 +132,19 @@ class _EarningsScreenState extends State<EarningsScreen>
     );
   }
 
-  Widget _buildStatsBreakdown(ThemeData theme) {
+  Widget _buildStatsBreakdown(ThemeData theme, LanguageProvider lp) {
     return Row(
       children: [
         _buildMiniStat(
           theme,
-          'Today',
+          lp.translate('today'),
           _earningsService.getTodaysEarningsStream(),
           Colors.blue,
         ),
         const SizedBox(width: 16),
         _buildMiniStat(
           theme,
-          'Lifetime',
+          lp.translate('lifetime'),
           Future.value(12450.0),
           Colors.green,
         ), // Mock lifetime
@@ -203,14 +206,14 @@ class _EarningsScreenState extends State<EarningsScreen>
     );
   }
 
-  Widget _buildWithdrawalActions(ThemeData theme) {
+  Widget _buildWithdrawalActions(ThemeData theme, LanguageProvider lp) {
     return Row(
       children: [
         Expanded(
           child: ElevatedButton.icon(
             onPressed: () {},
             icon: const Icon(Icons.account_balance_wallet_outlined, size: 18),
-            label: const Text('UPI TRANSFER'),
+            label: Text(lp.translate('upi_transfer')),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blue.shade50,
               foregroundColor: Colors.blue.shade700,
@@ -227,7 +230,7 @@ class _EarningsScreenState extends State<EarningsScreen>
           child: ElevatedButton.icon(
             onPressed: () {},
             icon: const Icon(Icons.account_balance_outlined, size: 18),
-            label: const Text('BANK Payout'),
+            label: Text(lp.translate('bank_payout')),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green.shade50,
               foregroundColor: Colors.green.shade700,
@@ -243,23 +246,23 @@ class _EarningsScreenState extends State<EarningsScreen>
     );
   }
 
-  Widget _buildTransactionHistoryHeader(ThemeData theme) {
+  Widget _buildTransactionHistoryHeader(ThemeData theme, LanguageProvider lp) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
-            'Recent Transactions',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          Text(
+            lp.translate('recent_transactions'),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
-          TextButton(onPressed: () {}, child: const Text('Filters')),
+          TextButton(onPressed: () {}, child: Text(lp.translate('filters'))),
         ],
       ),
     );
   }
 
-  Widget _buildTransactionHistoryList(ThemeData theme) {
+  Widget _buildTransactionHistoryList(ThemeData theme, LanguageProvider lp) {
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _earningsService.getTransactionHistory(),
       builder: (context, snapshot) {
@@ -268,7 +271,7 @@ class _EarningsScreenState extends State<EarningsScreen>
         }
         final transactions = snapshot.data ?? [];
         if (transactions.isEmpty) {
-          return _buildEmptyHistory();
+          return _buildEmptyHistory(lp);
         }
         return ListView.separated(
           shrinkWrap: true,
@@ -317,7 +320,7 @@ class _EarningsScreenState extends State<EarningsScreen>
                   ),
                 ),
                 title: Text(
-                  isEarning ? 'Order Payout' : 'Transfer',
+                  isEarning ? lp.translate('order_payout') : lp.translate('transfer'),
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
@@ -330,7 +333,7 @@ class _EarningsScreenState extends State<EarningsScreen>
                   style: const TextStyle(fontSize: 12),
                 ),
                 trailing: Text(
-                  '${isEarning ? '+' : '-'} ₹${(tx['amount'] as num).toStringAsFixed(0)}',
+                  '${isEarning ? '+' : '-'} ₹${((tx['amount'] ?? tx['total_amount'] ?? 0) as num).toStringAsFixed(0)}',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
@@ -345,7 +348,7 @@ class _EarningsScreenState extends State<EarningsScreen>
     );
   }
 
-  Widget _buildEmptyHistory() {
+  Widget _buildEmptyHistory(LanguageProvider lp) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(40),
@@ -354,7 +357,7 @@ class _EarningsScreenState extends State<EarningsScreen>
             Icon(Icons.history, size: 48, color: Colors.grey[300]),
             const SizedBox(height: 12),
             Text(
-              'No transactions yet',
+              lp.translate('no_transactions'),
               style: TextStyle(color: Colors.grey[400]),
             ),
           ],

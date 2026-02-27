@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:pharmaco_delivery_partner/features/home/home_screen.dart' show HomeScreen;
 import 'package:pharmaco_delivery_partner/features/orders/orders_screen.dart';
 import 'package:pharmaco_delivery_partner/features/earnings/earnings_screen.dart';
-import 'package:pharmaco_delivery_partner/features/ratings/ratings_screen.dart';
 import 'package:pharmaco_delivery_partner/features/profile/profile_screen.dart';
 import 'package:pharmaco_delivery_partner/core/services/order_service.dart';
 import 'package:pharmaco_delivery_partner/core/services/profile_service.dart';
+import 'package:pharmaco_delivery_partner/core/providers/language_provider.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -24,7 +25,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         HomeScreen(onTabChange: _onItemTapped),
         const OrdersScreen(),
         const EarningsScreen(),
-        const RatingsScreen(),
         const ProfileScreen(),
       ];
 
@@ -51,37 +51,39 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     setState(() {
       _currentIndex = index;
     });
-    if (index == 4) {
+    if (index == 3) {
       _fetchProfilePhoto(); // Refresh photo when profile tab is opened
     }
   }
 
-  static const List<String> _titles = <String>[
-    'Dashboard',
-    'Orders',
-    'My Earnings',
-    'Ratings',
-    'Profile & Account',
-  ];
+  List<String> _getTitles(LanguageProvider lp) => [
+        lp.translate('dashboard'),
+        lp.translate('orders'),
+        lp.translate('my_earnings'),
+        lp.translate('profile_account'),
+      ];
 
   @override
   Widget build(BuildContext context) {
+    final lp = Provider.of<LanguageProvider>(context);
+    final titles = _getTitles(lp);
     return WillPopScope(
       onWillPop: () async {
         final shouldExit = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Exit App'),
-            content: const Text('Are you sure you want to exit the app?'),
+            title: Text(lp.translate('exit_app')),
+            content: Text(lp.translate('exit_confirm')),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('CANCEL'),
+                child: Text(lp.translate('cancel')),
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-                child: const Text('EXIT'),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red, foregroundColor: Colors.white),
+                child: Text(lp.translate('exit')),
               ),
             ],
           ),
@@ -90,15 +92,17 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text(_titles[_currentIndex]),
+          title: Text(titles[_currentIndex]),
           actions: [
-            if (_currentIndex != 4) // Don't show on profile screen itself
+            if (_currentIndex != 3) // Don't show on profile screen itself
               Padding(
                 padding: const EdgeInsets.only(right: 16.0),
                 child: GestureDetector(
-                  onTap: () => _onItemTapped(4),
+                  onTap: () => _onItemTapped(3),
                   child: CircleAvatar(
-                    backgroundImage: _profilePhotoUrl != null ? NetworkImage(_profilePhotoUrl!) : null,
+                    backgroundImage: _profilePhotoUrl != null
+                        ? NetworkImage(_profilePhotoUrl!)
+                        : null,
                     child: _profilePhotoUrl == null ? const Icon(Icons.person) : null,
                   ),
                 ),
@@ -111,10 +115,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         ),
         bottomNavigationBar: BottomNavigationBar(
           items: <BottomNavigationBarItem>[
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home),
-              label: 'Home',
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.home_outlined),
+              activeIcon: const Icon(Icons.home),
+              label: lp.translate('home'),
             ),
             BottomNavigationBarItem(
               icon: StreamBuilder<int>(
@@ -139,22 +143,17 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                   );
                 },
               ),
-              label: 'Orders',
+              label: lp.translate('orders'),
             ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.account_balance_wallet_outlined),
-              activeIcon: Icon(Icons.account_balance_wallet),
-              label: 'Earnings',
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.account_balance_wallet_outlined),
+              activeIcon: const Icon(Icons.account_balance_wallet),
+              label: lp.translate('earnings'),
             ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.star_outline),
-              activeIcon: Icon(Icons.star),
-              label: 'Ratings',
-            ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person),
-              label: 'Profile',
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.person_outline),
+              activeIcon: const Icon(Icons.person),
+              label: lp.translate('profile'),
             ),
           ],
           currentIndex: _currentIndex,

@@ -112,7 +112,7 @@ class _IncomingOrderScreenState extends State<IncomingOrderScreen> {
     final String pharmacyName =
         (_pharmacy?['medical_name'] as String?) ?? 'Medical Partner';
     final String pharmacyAddress =
-        (_pharmacy?['address'] as String?) ?? 'Pickup Location';
+        (_pharmacy?['address'] as String?) ?? 'Pharmacy location';
     final double amount = (order['total_amount'] as num?)?.toDouble() ?? 0.0;
 
     return Column(
@@ -191,20 +191,34 @@ class _IncomingOrderScreenState extends State<IncomingOrderScreen> {
     );
   }
 
+  bool _isAccepting = false;
+
   Widget _buildActionButtons(BuildContext context, Map<String, dynamic> order) {
     return Row(
       children: [
         Expanded(
           child: ElevatedButton(
-            onPressed: () {
-              _timer?.cancel();
-              _orderService.acceptOrder(order['id']);
-              Navigator.pushReplacementNamed(
-                context,
-                AppRoutes.orderDetails,
-                arguments: order,
-              );
-            },
+            onPressed: _isAccepting
+                ? null
+                : () async {
+                    setState(() => _isAccepting = true);
+                    _timer?.cancel();
+                    try {
+                      await _orderService.acceptOrder(order['id']);
+                      if (!mounted) return;
+                      Navigator.pushReplacementNamed(
+                        context,
+                        AppRoutes.liveDelivery,
+                        arguments: order,
+                      );
+                    } catch (e) {
+                      if (!mounted) return;
+                      setState(() => _isAccepting = false);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to accept: $e')),
+                      );
+                    }
+                  },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green,
               padding: const EdgeInsets.symmetric(vertical: 24),
@@ -213,7 +227,16 @@ class _IncomingOrderScreenState extends State<IncomingOrderScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            child: const Text('ACCEPT'),
+            child: _isAccepting
+                ? const SizedBox(
+                    height: 24,
+                    width: 24,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Text('ACCEPT'),
           ),
         ),
         const SizedBox(width: 16),

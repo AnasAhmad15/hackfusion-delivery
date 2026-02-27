@@ -8,8 +8,8 @@ plugins {
 
 android {
     namespace = "com.example.pharmaco_delivery_partner"
-    compileSdk = 36
-    ndkVersion = "27.0.12077973"
+    compileSdk = flutter.compileSdkVersion
+    ndkVersion = flutter.ndkVersion
 
     compileOptions {
         // Flag to enable support for the new language APIs

@@ -18,16 +18,24 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
   Future<void> _loadPharmacy(String? pharmacyId) async {
     if (pharmacyId == null) return;
+    debugPrint('OrderDetails: Starting _loadPharmacy for $pharmacyId');
     try {
       final data = await _client
           .from('medical_partners')
           .select('id, medical_name, address, lat, lng')
           .eq('id', pharmacyId)
           .maybeSingle();
+      
+      debugPrint('OrderDetails: Pharmacy data result: $data');
+      
       if (!mounted) return;
-      setState(() => _pharmacy = data);
-    } catch (_) {
-      // ignore
+      if (data != null) {
+        setState(() => _pharmacy = data);
+      } else {
+        debugPrint('OrderDetails: No pharmacy found in medical_partners for ID: $pharmacyId');
+      }
+    } catch (e) {
+      debugPrint('OrderDetails: Error in _loadPharmacy: $e');
     }
   }
 
@@ -64,9 +72,10 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         final status = (order['status'] as String? ?? 'pending').toLowerCase();
         final pharmacyId = order['pharmacy_id']?.toString();
 
-        if (_pharmacy == null && pharmacyId != null) {
-          _loadPharmacy(pharmacyId);
-        }
+    if (_pharmacy == null && pharmacyId != null) {
+      debugPrint('OrderDetails: Initial fetch for pharmacyId: $pharmacyId');
+      _loadPharmacy(pharmacyId);
+    }
 
         // Auto-redirect if finalized
         if (['completed', 'cancelled'].contains(status)) {
@@ -97,14 +106,14 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
             children: [
               _buildTimeline(status),
               const SizedBox(height: 24),
-              _buildLocationCard(
+            _buildLocationCard(
                 context,
                 order: order,
                 title: 'Pickup From',
                 address:
-                    _pharmacy?['address'] ??
-                    order['pharmacy_address'] ??
-                    'Pharmacy location',
+                    _pharmacy?['medical_name'] != null 
+                    ? "${_pharmacy!['medical_name']}\n${_pharmacy!['address'] ?? ''}"
+                    : (order['pharmacy_name'] ?? order['medical_name'] ?? 'Pharmacy location'),
                 isPickup: true,
                 currentStatus: status,
               ),
@@ -213,10 +222,9 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   }) {
     final theme = Theme.of(context);
     final bool canNavigate =
-        (isPickup && currentStatus == 'accepted') ||
-        (!isPickup && ['picked_up', 'delivered'].contains(currentStatus));
+        ['accepted', 'ready', 'preparing', 'picked_up', 'delivered'].contains(currentStatus);
     final bool canAction =
-        (isPickup && currentStatus == 'accepted') ||
+        (isPickup && ['accepted', 'ready', 'preparing'].contains(currentStatus)) ||
         (!isPickup && currentStatus == 'picked_up');
 
     return Card(
@@ -258,7 +266,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                 if (canNavigate)
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () => Navigator.pushNamed(
+                      onPressed: () => Navigator.pushReplacementNamed(
                         context,
                         AppRoutes.liveDelivery,
                         arguments: order,
@@ -291,14 +299,14 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                         elevation: 0,
                       ),
                       child: Text(
-                        isPickup ? 'CONFIRM PICKUP' : 'START DELIVERY',
+                        isPickup ? 'CONFIRM PICKUP' : 'CONFIRM DELIVERY',
                       ),
                     ),
                   ),
                 if (!isPickup && currentStatus == 'delivered')
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () => Navigator.pushNamed(
+                      onPressed: () => Navigator.pushReplacementNamed(
                         context,
                         AppRoutes.liveDelivery,
                         arguments: order,
@@ -338,19 +346,25 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         await _orderService.updateOrderStatus(order['id'], 'picked_up');
         if (!context.mounted) return;
         final nextOrder = Map<String, dynamic>.from(order);
+        nextOrder['status'] = 'picked_up';
         if (_pharmacy != null) {
           nextOrder['pharmacy_address'] = _pharmacy?['address'];
           nextOrder['pharmacy_lat'] = _pharmacy?['lat'];
           nextOrder['pharmacy_lng'] = _pharmacy?['lng'];
         }
-        Navigator.pushNamed(
+        Navigator.pushReplacementNamed(
           context,
           AppRoutes.liveDelivery,
           arguments: nextOrder,
         );
       }
     } else {
-      await _orderService.updateOrderStatus(order['id'], 'picked_up');
+      // Handle Delivery Confirmation
+      Navigator.pushNamed(
+        context,
+        AppRoutes.confirmDelivery,
+        arguments: order,
+      );
     }
   }
 }

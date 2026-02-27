@@ -1,68 +1,90 @@
-import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class EarningsService {
   final SupabaseClient _client = Supabase.instance.client;
 
+  /// Real-time stream of today's total earnings using Supabase Realtime.
+  /// Listens to changes on the 'orders' table and recalculates the sum
+  /// of payouts for delivered orders created today.
   Stream<double> getTodaysEarningsStream() {
-    final controller = StreamController<double>();
     final userId = _client.auth.currentUser?.id;
+    if (userId == null) return Stream.error(Exception('User not logged in'));
 
-    if (userId == null) {
-      controller.addError(Exception('User not logged in'));
-      return controller.stream;
-    }
+    return _client
+        .from('orders')
+        .stream(primaryKey: ['id'])
+        .eq('delivery_partner_id', userId)
+        .order('created_at', ascending: false)
+        .map((orders) {
+          final today = DateTime.now();
+          final startOfDay = DateTime(today.year, today.month, today.day);
 
-    Future<void> fetchEarnings() async {
-      try {
-        final today = DateTime.now();
-        final startOfDay = DateTime(today.year, today.month, today.day);
-        final endOfDay = startOfDay.add(const Duration(days: 1));
+          double total = 0;
+          for (var order in orders) {
+            final status = (order['status'] as String? ?? '').toLowerCase();
+            if (status != 'delivered') continue;
 
-        final response = await _client
-            .from('orders')
-            .select('payout')
-            .eq('delivery_partner_id', userId)
-            .eq('status', 'delivered')
-            .gte('created_at', startOfDay.toIso8601String())
-            .lt('created_at', endOfDay.toIso8601String());
+            final createdAt = DateTime.tryParse(order['created_at'] ?? '');
+            if (createdAt == null || createdAt.isBefore(startOfDay)) continue;
 
-        double total = 0;
-        for (var order in response) {
-          total += (order['payout'] as num?)?.toDouble() ?? 0.0;
-        }
-        controller.add(total);
-      } catch (e) {
-        controller.addError(e);
-      }
-    }
-
-    fetchEarnings();
-    Timer.periodic(const Duration(seconds: 30), (timer) {
-      if (controller.isClosed) {
-        timer.cancel();
-      } else {
-        fetchEarnings();
-      }
-    });
-
-    return controller.stream;
+            total += (order['payout'] as num?)?.toDouble() ?? 0.0;
+          }
+          return total;
+        });
   }
 
+  /// Real-time stream of weekly earnings summary using Supabase Realtime.
+  /// Returns a map of day keys (Mon–Sun) to total payout amounts.
+  Stream<Map<String, double>> getWeeklySummaryStream() {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return Stream.error(Exception('User not logged in'));
+
+    return _client
+        .from('orders')
+        .stream(primaryKey: ['id'])
+        .eq('delivery_partner_id', userId)
+        .order('created_at', ascending: false)
+        .map((orders) {
+          final now = DateTime.now();
+          final startOfWeek = DateTime(now.year, now.month, now.day)
+              .subtract(Duration(days: now.weekday - 1));
+
+          Map<String, double> weeklySummary = {
+            'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0, 'Sun': 0
+          };
+
+          for (var order in orders) {
+            final status = (order['status'] as String? ?? '').toLowerCase();
+            if (status != 'completed') continue;
+
+            final createdAt = DateTime.tryParse(order['created_at'] ?? '');
+            if (createdAt == null || createdAt.isBefore(startOfWeek)) continue;
+
+            final dayKey = _getDayKey(createdAt.weekday);
+            weeklySummary[dayKey] = (weeklySummary[dayKey] ?? 0.0) +
+                ((order['payout'] as num?)?.toDouble() ?? 0.0);
+          }
+
+          return weeklySummary;
+        });
+  }
+
+  /// Kept for backward compatibility — fetches weekly summary once.
   Future<Map<String, double>> getWeeklySummary() async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception('User not logged in');
 
     final now = DateTime.now();
-    final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-    final startOfWeekDate = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+    final startOfWeek = DateTime(now.year, now.month, now.day)
+        .subtract(Duration(days: now.weekday - 1));
 
     final response = await _client
         .from('orders')
         .select('created_at, payout')
         .eq('delivery_partner_id', userId)
         .eq('status', 'completed')
-        .gte('created_at', DateTime.now().toIso8601String().substring(0, 10));
+        .gte('created_at', startOfWeek.toIso8601String());
 
     Map<String, double> weeklySummary = {
       'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0, 'Sun': 0
@@ -70,9 +92,9 @@ class EarningsService {
 
     for (var order in response) {
       final createdAt = DateTime.parse(order['created_at']);
-      final dayOfWeek = createdAt.weekday;
-      final dayKey = _getDayKey(dayOfWeek);
-      weeklySummary[dayKey] = (weeklySummary[dayKey] ?? 0.0) + ((order['payout'] as num?)?.toDouble() ?? 0.0);
+      final dayKey = _getDayKey(createdAt.weekday);
+      weeklySummary[dayKey] = (weeklySummary[dayKey] ?? 0.0) +
+          ((order['payout'] as num?)?.toDouble() ?? 0.0);
     }
 
     return weeklySummary;
@@ -91,40 +113,35 @@ class EarningsService {
     }
   }
 
+  /// Real-time stream of completed order history using Supabase Realtime.
   Stream<List<Map<String, dynamic>>> getOrderHistory() {
-    final controller = StreamController<List<Map<String, dynamic>>>();
     final userId = _client.auth.currentUser?.id;
+    if (userId == null) return Stream.error(Exception('User not logged in'));
 
-    if (userId == null) {
-      controller.addError(Exception('User not logged in'));
-      return controller.stream;
-    }
-
-    Future<void> fetchHistory() async {
-      try {
-        final response = await _client
-            .from('orders')
-            .select()
-            .eq('delivery_partner_id', userId)
-            .order('created_at', ascending: false);
-        controller.add(response);
-      } catch (e) {
-        controller.addError(e);
-      }
-    }
-
-    fetchHistory();
-    Timer.periodic(const Duration(minutes: 1), (timer) {
-      if (controller.isClosed) {
-        timer.cancel();
-      } else {
-        fetchHistory();
-      }
-    });
-
-    return controller.stream;
+    return _client
+        .from('orders')
+        .stream(primaryKey: ['id'])
+        .eq('delivery_partner_id', userId)
+        .order('created_at', ascending: false)
+        .map((orders) => List<Map<String, dynamic>>.from(orders));
   }
 
+  /// Real-time stream of wallet balance using Supabase Realtime on profiles.
+  Stream<double> getWalletBalanceStream() {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return Stream.error(Exception('User not logged in'));
+
+    return _client
+        .from('profiles')
+        .stream(primaryKey: ['id'])
+        .eq('id', userId)
+        .map((data) {
+          if (data.isEmpty) return 0.0;
+          return (data.first['wallet_balance'] as num?)?.toDouble() ?? 0.0;
+        });
+  }
+
+  /// Kept for backward compatibility — fetches wallet balance once.
   Future<double> getWalletBalance() async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception('User not logged in');
@@ -160,6 +177,7 @@ class EarningsService {
     }
   }
 
+  /// Real-time stream of transaction history using Supabase Realtime.
   Stream<List<Map<String, dynamic>>> getTransactionHistory() {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return Stream.value([]);

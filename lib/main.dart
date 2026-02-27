@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:pharmaco_delivery_partner/app/routes/app_routes.dart';
 import 'package:pharmaco_delivery_partner/app/theme/app_theme.dart';
 import 'package:pharmaco_delivery_partner/core/services/supabase_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:pharmaco_delivery_partner/features/navigation/main_navigation_screen.dart';
 import 'package:pharmaco_delivery_partner/features/auth/login_screen.dart';
+import 'package:pharmaco_delivery_partner/features/language/language_selection_screen.dart';
 import 'package:pharmaco_delivery_partner/core/services/fcm_service.dart';
+import 'package:pharmaco_delivery_partner/core/providers/language_provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 void main() async {
@@ -13,7 +16,13 @@ void main() async {
   await Firebase.initializeApp();
   await SupabaseService.initialize();
   await FCMService.initialize();
-  runApp(const PharmaCoApp());
+  
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => LanguageProvider(),
+      child: const PharmaCoApp(),
+    ),
+  );
 }
 
 class PharmaCoApp extends StatelessWidget {
@@ -37,6 +46,12 @@ class AuthWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final languageProvider = Provider.of<LanguageProvider>(context);
+
+    if (languageProvider.isFirstTime) {
+      return const LanguageSelectionScreen();
+    }
+
     return StreamBuilder<AuthState>(
       stream: Supabase.instance.client.auth.onAuthStateChange,
       builder: (context, snapshot) {

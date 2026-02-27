@@ -8,25 +8,31 @@ class RatingsService {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception('User not logged in');
 
-    final response = await _client
-        .from('ratings')
-        .select('rating')
-        .eq('delivery_partner_id', userId);
+    try {
+      final response = await _client
+          .from('ratings')
+          .select('rating')
+          .eq('delivery_partner_id', userId);
 
-    if (response.isEmpty) {
+      if (response == null || (response as List).isEmpty) {
+        return {'average_rating': 0.0, 'total_ratings': 0};
+      }
+
+      final List ratingsList = response as List;
+      double totalRating = 0;
+      for (var item in ratingsList) {
+        totalRating += (item['rating'] as num?)?.toDouble() ?? 0.0;
+      }
+      final averageRating = totalRating / ratingsList.length;
+
+      return {
+        'average_rating': averageRating,
+        'total_ratings': ratingsList.length,
+      };
+    } catch (e) {
+      print('RatingsService.getRatingsSummary error: $e');
       return {'average_rating': 0.0, 'total_ratings': 0};
     }
-
-    double totalRating = 0;
-    for (var item in response) {
-      totalRating += (item['rating'] as num?)?.toDouble() ?? 0.0;
-    }
-    final averageRating = totalRating / response.length;
-
-    return {
-      'average_rating': averageRating,
-      'total_ratings': response.length,
-    };
   }
 
   // Fetches the list of feedback/reviews
@@ -34,10 +40,17 @@ class RatingsService {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception('User not logged in');
 
-    return await _client
-        .from('ratings')
-        .select('feedback, created_at')
-        .eq('delivery_partner_id', userId)
-        .order('created_at', ascending: false);
+    try {
+      final response = await _client
+          .from('ratings')
+          .select('rating, feedback, created_at')
+          .eq('delivery_partner_id', userId)
+          .order('created_at', ascending: false);
+      
+      return List<Map<String, dynamic>>.from(response ?? []);
+    } catch (e) {
+      print('RatingsService.getFeedbackList error: $e');
+      return [];
+    }
   }
 }
