@@ -6,7 +6,8 @@ import 'package:pharmaco_delivery_partner/app/routes/app_routes.dart';
 import 'package:pharmaco_delivery_partner/core/services/directions_service.dart';
 import 'package:pharmaco_delivery_partner/core/services/order_service.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:pinput/pinput.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:geocoding/geocoding.dart' as geocoding;
 
 class LiveDeliveryScreen extends StatefulWidget {
   const LiveDeliveryScreen({super.key});
@@ -20,10 +21,23 @@ class _LiveDeliveryScreenState extends State<LiveDeliveryScreen> {
   final Location _location = Location();
   StreamSubscription<LocationData>? _locationSubscription;
   final OrderService _orderService = OrderService();
+  final SupabaseClient _client = Supabase.instance.client;
+
+  LatLng? _pickupLocation;
+  LatLng? _deliveryLocation;
+
+  String? _pickupAddress;
+  String? _deliveryAddress;
+
+  String? _customerPhone;
+
+  Map<String, dynamic>? _order;
 
   Marker? _currentLocationMarker;
   Set<Polyline> _polylines = const <Polyline>{};
   bool _isLoadingRoute = false;
+
+  Timer? _routeDebounce;
 
   // TODO: Replace with a secure key injection method (e.g. --dart-define / remote config)
   static const String _googleDirectionsApiKey =
@@ -35,10 +49,165 @@ class _LiveDeliveryScreenState extends State<LiveDeliveryScreen> {
     _listenToLocation();
   }
 
+  Future<void> _loadCustomerLocation(String userId) async {
+    try {
+      final userProfile = await _client
+          .from('user_profiles')
+          .select('id, latitude, longitude, address, city_area')
+          .eq('id', userId)
+          .maybeSingle();
+
+      final lat = (userProfile?['latitude'] as num?)?.toDouble();
+      final lng = (userProfile?['longitude'] as num?)?.toDouble();
+      final String? address = (userProfile?['address'] as String?)?.trim();
+      final String? cityArea = (userProfile?['city_area'] as String?)?.trim();
+
+      LatLng? resolved;
+      if (lat != null && lng != null) {
+        resolved = LatLng(lat, lng);
+      } else if (address != null && address.isNotEmpty) {
+        resolved = await _geocodeToLatLng(address);
+      } else if (cityArea != null && cityArea.isNotEmpty) {
+        resolved = await _geocodeToLatLng(cityArea);
+      }
+
+      if (resolved == null) return;
+      if (!mounted) return;
+      setState(() {
+        _deliveryLocation = resolved;
+        _deliveryAddress = address ?? cityArea ?? 'Delivery';
+      });
+      _scheduleRouteRecalc();
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  Future<LatLng?> _geocodeToLatLng(String address) async {
+    try {
+      final results = await geocoding.locationFromAddress(address);
+      if (results.isEmpty) return null;
+      final first = results.first;
+      return LatLng(first.latitude, first.longitude);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _scheduleRouteRecalc() {
+    _routeDebounce?.cancel();
+    _routeDebounce = Timer(const Duration(milliseconds: 250), () {
+      final order = _order;
+      if (!mounted || order == null) return;
+      _loadRouteIfPossible(order: order);
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final arguments = ModalRoute.of(context)?.settings.arguments;
+    if (arguments != null && arguments is Map<String, dynamic>) {
+      _order ??= Map<String, dynamic>.from(arguments);
+      _ensureLocationsLoaded();
+    }
+  }
+
+  void _ensureLocationsLoaded() {
+    final order = _order;
+    if (order == null) return;
+
+    final pharmacyId = order['pharmacy_id']?.toString();
+    final status = (order['status'] as String? ?? 'accepted').toLowerCase();
+    if (_pickupLocation == null && pharmacyId != null) {
+      _loadPharmacyLocation(pharmacyId);
+    } else if (_pickupLocation == null &&
+        pharmacyId == null &&
+        status == 'accepted') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Pickup location missing (pharmacy_id is null).'),
+          ),
+        );
+      });
+    }
+
+    final userId = order['user_id']?.toString();
+    if (_deliveryLocation == null && userId != null) {
+      _loadCustomerLocation(userId);
+    }
+
+    if (_customerPhone == null && userId != null) {
+      _loadCustomerPhone(userId);
+    }
+  }
+
+  Future<void> _loadCustomerPhone(String userId) async {
+    try {
+      final data = await _client
+          .from('user_profiles')
+          .select('id, phone_number')
+          .eq('id', userId)
+          .maybeSingle();
+      final phone = (data?['phone_number'] as String?)?.trim();
+      if (phone == null || phone.isEmpty) return;
+      if (!mounted) return;
+      setState(() {
+        _customerPhone = phone;
+      });
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  Future<void> _loadPharmacyLocation(String pharmacyId) async {
+    try {
+      final data = await _client
+          .from('medical_partners')
+          .select('id, lat, lng, address, medical_name')
+          .eq('id', pharmacyId)
+          .maybeSingle();
+      if (data == null) return;
+      final lat = (data['lat'] as num?)?.toDouble();
+      final lng = (data['lng'] as num?)?.toDouble();
+      final address = (data['address'] as String?)?.trim();
+
+      LatLng? resolved;
+      if (lat != null && lng != null) {
+        resolved = LatLng(lat, lng);
+      } else if (address != null && address.isNotEmpty) {
+        resolved = await _geocodeToLatLng(address);
+      }
+
+      if (resolved == null) return;
+      if (!mounted) return;
+      setState(() {
+        _pickupLocation = resolved;
+        _pickupAddress =
+            (data['address'] as String?) ??
+            (data['medical_name'] as String?) ??
+            'Pickup';
+      });
+      _scheduleRouteRecalc();
+      if (_mapController != null) {
+        await _mapController!.animateCamera(
+          CameraUpdate.newLatLngZoom(_pickupLocation!, 14),
+        );
+      }
+    } catch (_) {
+      // ignore
+    }
+  }
+
   Future<void> _makePhoneCall(String phoneNumber) async {
-    final Uri launchUri = Uri(scheme: 'tel', path: phoneNumber);
+    final cleaned = phoneNumber.replaceAll(RegExp(r'[^0-9+]'), '');
+    if (cleaned.isEmpty) return;
+
+    final Uri launchUri = Uri(scheme: 'tel', path: cleaned);
     if (await canLaunchUrl(launchUri)) {
-      await launchUrl(launchUri);
+      await launchUrl(launchUri, mode: LaunchMode.externalApplication);
     } else {
       // Could not launch the phone app
     }
@@ -75,6 +244,9 @@ class _LiveDeliveryScreenState extends State<LiveDeliveryScreen> {
             infoWindow: const InfoWindow(title: 'My Location'),
           );
         });
+
+        // When driver location updates, recompute route to reflect live movement.
+        _scheduleRouteRecalc();
       }
     });
   }
@@ -82,24 +254,24 @@ class _LiveDeliveryScreenState extends State<LiveDeliveryScreen> {
   @override
   void dispose() {
     _locationSubscription?.cancel();
+    _routeDebounce?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final arguments = ModalRoute.of(context)?.settings.arguments;
-    if (arguments == null || arguments is! Map<String, dynamic>) {
+    final order = _order;
+    if (order == null) {
       return const Scaffold(body: Center(child: Text('Invalid order data.')));
     }
-    final order = arguments;
-    final pickupLocation = LatLng(
-      order['pharmacy_lat'] ?? 37.422,
-      order['pharmacy_lng'] ?? -122.084,
-    );
-    final deliveryLocation = LatLng(
-      order['customer_lat'] ?? 37.432,
-      order['customer_lng'] ?? -122.094,
-    );
+
+    final LatLng initialTarget =
+        _currentLocationMarker?.position ??
+        _pickupLocation ??
+        const LatLng(19.8540659, 75.3376926);
+
+    final pickupLocation = _pickupLocation;
+    final deliveryLocation = _deliveryLocation;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Live Delivery')),
@@ -107,28 +279,27 @@ class _LiveDeliveryScreenState extends State<LiveDeliveryScreen> {
         children: [
           GoogleMap(
             initialCameraPosition: CameraPosition(
-              target: pickupLocation,
+              target: initialTarget,
               zoom: 14,
             ),
             onMapCreated: (GoogleMapController controller) {
               _mapController = controller;
-              _loadRouteIfPossible(
-                order: order,
-                pickup: pickupLocation,
-                delivery: deliveryLocation,
-              );
+              _ensureLocationsLoaded();
+              _loadRouteIfPossible(order: order);
             },
             markers: {
-              Marker(
-                markerId: const MarkerId('pickup'),
-                position: pickupLocation,
-                infoWindow: const InfoWindow(title: 'Pickup'),
-              ),
-              Marker(
-                markerId: const MarkerId('delivery'),
-                position: deliveryLocation,
-                infoWindow: const InfoWindow(title: 'Delivery'),
-              ),
+              if (pickupLocation != null)
+                Marker(
+                  markerId: const MarkerId('pickup'),
+                  position: pickupLocation,
+                  infoWindow: InfoWindow(title: _pickupAddress ?? 'Pickup'),
+                ),
+              if (deliveryLocation != null)
+                Marker(
+                  markerId: const MarkerId('delivery'),
+                  position: deliveryLocation,
+                  infoWindow: InfoWindow(title: _deliveryAddress ?? 'Delivery'),
+                ),
               if (_currentLocationMarker != null) _currentLocationMarker!,
             },
             polylines: _polylines,
@@ -148,25 +319,34 @@ class _LiveDeliveryScreenState extends State<LiveDeliveryScreen> {
 
   Future<void> _loadRouteIfPossible({
     required Map<String, dynamic> order,
-    required LatLng pickup,
-    required LatLng delivery,
   }) async {
     if (_mapController == null) return;
     if (_googleDirectionsApiKey.isEmpty) return;
 
     final status = (order['status'] as String? ?? 'accepted').toLowerCase();
 
+    final pickup = _pickupLocation;
+    final delivery = _deliveryLocation;
+    final current = _currentLocationMarker?.position;
+    if (pickup == null && !['picked_up', 'delivered'].contains(status)) {
+      return;
+    }
+
     // Route logic:
     // - before pickup: current -> pickup
     // - after pickup: pickup -> delivery
-    final LatLng? current = _currentLocationMarker?.position;
     final LatLng origin;
     final LatLng destination;
-    if (['picked_up', 'on_the_way'].contains(status)) {
-      origin = pickup;
+    if (['picked_up', 'delivered'].contains(status)) {
+      if (delivery == null) return;
+      // After pickup: driver live GPS -> delivery destination.
+      if (current == null) return;
+      origin = current;
       destination = delivery;
     } else {
-      origin = current ?? pickup;
+      if (current == null) return;
+      if (pickup == null) return;
+      origin = current;
       destination = pickup;
     }
 
@@ -235,6 +415,14 @@ class _LiveDeliveryScreenState extends State<LiveDeliveryScreen> {
 
   Widget _buildBottomCard(BuildContext context, Map<String, dynamic> order) {
     final theme = Theme.of(context);
+    final status = (order['status'] as String? ?? 'accepted').toLowerCase();
+    final bool canComplete = ['picked_up', 'delivered'].contains(status);
+
+    final String progressLabel = switch (status) {
+      'delivered' => 'Delivered',
+      'picked_up' => 'Picked Up',
+      _ => 'Accepted',
+    };
     return Positioned(
       bottom: 0,
       left: 0,
@@ -253,7 +441,7 @@ class _LiveDeliveryScreenState extends State<LiveDeliveryScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Progress Indicator
-            _buildDeliveryProgress('On the Way'),
+            _buildDeliveryProgress(progressLabel),
             const SizedBox(height: 20),
             _buildEtaAndSla(context),
             const Divider(height: 32),
@@ -277,7 +465,9 @@ class _LiveDeliveryScreenState extends State<LiveDeliveryScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () => _showCompletionSheet(context, order),
+                    onPressed: canComplete
+                        ? () => _showCompletionSheet(context, order)
+                        : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: theme.primaryColor,
                       foregroundColor: Colors.white,
@@ -299,7 +489,7 @@ class _LiveDeliveryScreenState extends State<LiveDeliveryScreen> {
   }
 
   Widget _buildDeliveryProgress(String currentStatus) {
-    final steps = ['Accepted', 'Picked Up', 'On the Way', 'Delivered'];
+    final steps = ['Accepted', 'Picked Up', 'Delivered'];
     final currentIndex = steps.indexOf(currentStatus);
 
     return Row(
@@ -330,6 +520,9 @@ class _LiveDeliveryScreenState extends State<LiveDeliveryScreen> {
   }
 
   void _showPaymentStatus(BuildContext context, Map<String, dynamic> order) {
+    final amount = (order['total_amount'] as num?)?.toDouble() ?? 0.0;
+    final paymentStatus = (order['payment_status'] as String? ?? 'pending')
+        .toUpperCase();
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -346,30 +539,15 @@ class _LiveDeliveryScreenState extends State<LiveDeliveryScreen> {
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 24),
-            _buildPaymentRow(
-              'Customer Payment',
-              '₹${order['payout']}',
-              isBold: true,
-            ),
+            _buildPaymentRow('Customer Payment', '₹$amount', isBold: true),
             const SizedBox(height: 8),
             _buildPaymentRow(
               'Status',
-              'SUCCESSFUL',
-              color: Colors.green,
+              paymentStatus,
+              color: paymentStatus == 'SUCCESSFUL'
+                  ? Colors.green
+                  : Colors.orange,
               isBadge: true,
-            ),
-            const Divider(height: 32),
-            _buildPaymentRow(
-              'Pharmacy Share',
-              '₹${order['payout']}',
-              subText: 'Credited to Pharmacy',
-            ),
-            const SizedBox(height: 12),
-            _buildPaymentRow(
-              'Your Commission',
-              '₹${order['commission_amount'] ?? 40.0}',
-              subText: 'Instant Wallet Credit',
-              color: Colors.blue,
             ),
             const SizedBox(height: 24),
             const Text(
@@ -469,13 +647,6 @@ class _LiveDeliveryScreenState extends State<LiveDeliveryScreen> {
             const SizedBox(height: 32),
             _buildProofOption(
               context,
-              'OTP Verification',
-              Icons.pin_outlined,
-              () => _verifyOtp(context, order),
-            ),
-            const SizedBox(height: 16),
-            _buildProofOption(
-              context,
               'Photo Capture',
               Icons.camera_alt_outlined,
               () => _capturePhoto(context, order),
@@ -516,80 +687,6 @@ class _LiveDeliveryScreenState extends State<LiveDeliveryScreen> {
         ),
       ),
     );
-  }
-
-  void _verifyOtp(BuildContext context, Map<String, dynamic> order) async {
-    final TextEditingController otpController = TextEditingController();
-    final theme = Theme.of(context);
-
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Enter OTP'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Ask the customer for the 4-digit code sent to their phone.',
-              style: TextStyle(color: Colors.grey, fontSize: 14),
-            ),
-            const SizedBox(height: 20),
-            Pinput(
-              length: 4,
-              controller: otpController,
-              autofocus: true,
-              defaultPinTheme: PinTheme(
-                width: 50,
-                height: 50,
-                textStyle: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              focusedPinTheme: PinTheme(
-                width: 50,
-                height: 50,
-                textStyle: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-                decoration: BoxDecoration(
-                  border: Border.all(color: theme.primaryColor, width: 2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              onCompleted: (pin) => Navigator.pop(context, true),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('CANCEL', style: TextStyle(color: Colors.grey[600])),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: theme.primaryColor,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text('VERIFY'),
-          ),
-        ],
-      ),
-    );
-
-    if (result == true && mounted) {
-      _finishOrder(context, order, 'otp');
-    }
   }
 
   void _capturePhoto(BuildContext context, Map<String, dynamic> order) {
@@ -717,21 +814,26 @@ class _LiveDeliveryScreenState extends State<LiveDeliveryScreen> {
       children: [
         const CircleAvatar(child: Icon(Icons.person)),
         const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                order['customer_name'] ?? 'N/A',
+        Row(
+          children: [
+            const Icon(Icons.person, size: 18, color: Colors.blue),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                order['customer_name'] ?? 'Customer',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
-              Text(order['customer_address'] ?? 'N/A'),
-            ],
-          ),
-        ),
-        IconButton(
-          icon: const Icon(Icons.call, color: Colors.green),
-          onPressed: () => _makePhoneCall(order['customer_phone'] ?? ''),
+            ),
+            IconButton(
+              icon: const Icon(Icons.call, color: Colors.green),
+              onPressed: () => _makePhoneCall(
+                _customerPhone ??
+                    (order['customer_phone'] as String?) ??
+                    (order['phone_number'] as String?) ??
+                    '',
+              ),
+            ),
+          ],
         ),
       ],
     );

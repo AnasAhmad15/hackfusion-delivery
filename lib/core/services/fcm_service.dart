@@ -6,7 +6,8 @@ import 'package:permission_handler/permission_handler.dart';
 
 class FCMService {
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
-  static final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+  static final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
 
   static const AndroidNotificationChannel _channel = AndroidNotificationChannel(
     'order_channel_id',
@@ -17,14 +18,16 @@ class FCMService {
   );
 
   @pragma('vm:entry-point')
-  static Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  static Future<void> firebaseMessagingBackgroundHandler(
+    RemoteMessage message,
+  ) async {
     // Note: Use print here carefully as it might not show up in all debug consoles for background processes
     debugPrint("Handling a background message: ${message.messageId}");
   }
 
   static Future<void> initialize() async {
     print('FCMService: Initializing...');
-    
+
     // 1. Request permissions
     try {
       NotificationSettings settings = await _messaging.requestPermission(
@@ -35,26 +38,34 @@ class FCMService {
       );
 
       print('FCMService: Permission status: ${settings.authorizationStatus}');
-      
+
       if (settings.authorizationStatus == AuthorizationStatus.authorized) {
         print('FCMService: User granted notification permission');
-      } else if (settings.authorizationStatus == AuthorizationStatus.provisional) {
+      } else if (settings.authorizationStatus ==
+          AuthorizationStatus.provisional) {
         print('FCMService: User granted provisional permission');
       } else {
-        print('FCMService: User declined or has not accepted notification permission');
+        print(
+          'FCMService: User declined or has not accepted notification permission',
+        );
       }
     } catch (e) {
       print('FCMService: Error requesting permission: $e');
     }
 
     // 2. Initialize Flutter Local Notifications
-    const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const InitializationSettings initSettings = InitializationSettings(android: androidSettings);
-    
+    const AndroidInitializationSettings androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const InitializationSettings initSettings = InitializationSettings(
+      android: androidSettings,
+    );
+
     await _localNotifications.initialize(initSettings);
-    
+
     await _localNotifications
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.createNotificationChannel(_channel);
 
     // 3. Configure FCM options
@@ -78,7 +89,8 @@ class FCMService {
     Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       final AuthChangeEvent event = data.event;
       print('FCMService: Auth state change detected: $event');
-      if (event == AuthChangeEvent.signedIn || event == AuthChangeEvent.tokenRefreshed) {
+      if (event == AuthChangeEvent.signedIn ||
+          event == AuthChangeEvent.tokenRefreshed) {
         syncToken();
       }
     });
@@ -88,8 +100,10 @@ class FCMService {
 
     // 8. Handle foreground messages
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      print('FCMService: Received foreground message: ${message.notification?.title}');
-      
+      print(
+        'FCMService: Received foreground message: ${message.notification?.title}',
+      );
+
       RemoteNotification? notification = message.notification;
       AndroidNotification? android = message.notification?.android;
 
@@ -111,7 +125,7 @@ class FCMService {
         );
       }
     });
-    
+
     print('FCMService: Initialization complete');
   }
 
@@ -131,8 +145,10 @@ class FCMService {
 
   static Future<void> sendWelcomeNotification(String type) async {
     final user = Supabase.instance.client.auth.currentUser;
-    print('FCMService: Attempting to trigger $type notification for: ${user?.id}');
-    
+    print(
+      'FCMService: Attempting to trigger $type notification for: ${user?.id}',
+    );
+
     if (user == null) {
       print('FCMService: Cannot send notification - No user logged in');
       return;
@@ -162,21 +178,4 @@ class FCMService {
   }
 
   static Future<void> _saveTokenToSupabase(String token) async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) {
-      print('FCMService: No user logged in, skipping token save');
-      return;
-    }
-
-    try {
-      print('FCMService: Saving token to Supabase for user: ${user.id}');
-      await Supabase.instance.client.from('delivery_partners').update({
-        'fcm_token': token,
-        'updated_at': DateTime.now().toIso8601String(),
-      }).eq('id', user.id);
-      print('FCMService: Token saved successfully');
-    } catch (e) {
-      print('FCMService: Error saving token to Supabase: $e');
-    }
-  }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pharmaco_delivery_partner/app/routes/app_routes.dart';
 import 'package:pharmaco_delivery_partner/core/services/order_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class OrderDetailsScreen extends StatefulWidget {
   const OrderDetailsScreen({super.key});
@@ -12,6 +13,23 @@ class OrderDetailsScreen extends StatefulWidget {
 class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   bool _isPickedUp = false;
   final OrderService _orderService = OrderService();
+  final SupabaseClient _client = Supabase.instance.client;
+  Map<String, dynamic>? _pharmacy;
+
+  Future<void> _loadPharmacy(String? pharmacyId) async {
+    if (pharmacyId == null) return;
+    try {
+      final data = await _client
+          .from('medical_partners')
+          .select('id, medical_name, address, lat, lng')
+          .eq('id', pharmacyId)
+          .maybeSingle();
+      if (!mounted) return;
+      setState(() => _pharmacy = data);
+    } catch (_) {
+      // ignore
+    }
+  }
 
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -20,7 +38,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       final order = arguments;
       final status = (order['status'] as String? ?? 'pending').toLowerCase();
       setState(() {
-        _isPickedUp = ['picked_up', 'on_the_way', 'delivered'].contains(status);
+        _isPickedUp = ['picked_up', 'delivered'].contains(status);
       });
     }
   }
@@ -44,6 +62,11 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
         final order = snapshot.data ?? arguments;
         final status = (order['status'] as String? ?? 'pending').toLowerCase();
+        final pharmacyId = order['pharmacy_id']?.toString();
+
+        if (_pharmacy == null && pharmacyId != null) {
+          _loadPharmacy(pharmacyId);
+        }
 
         // Auto-redirect if finalized
         if (['completed', 'cancelled'].contains(status)) {
@@ -78,7 +101,10 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                 context,
                 order: order,
                 title: 'Pickup From',
-                address: order['pharmacy_address'] ?? 'Pharmacy location',
+                address:
+                    _pharmacy?['address'] ??
+                    order['pharmacy_address'] ??
+                    'Pharmacy location',
                 isPickup: true,
                 currentStatus: status,
               ),
@@ -99,7 +125,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   }
 
   Widget _buildTimeline(String status) {
-    final stages = ['accepted', 'picked_up', 'on_the_way', 'delivered'];
+    final stages = ['accepted', 'picked_up', 'delivered'];
     final currentIndex = stages.indexOf(status);
 
     return Container(
@@ -158,7 +184,6 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
             children: [
               _timelineLabel('Accepted', status == 'accepted'),
               _timelineLabel('Picked Up', status == 'picked_up'),
-              _timelineLabel('On Way', status == 'on_the_way'),
               _timelineLabel('Arrived', status == 'delivered'),
             ],
           ),
@@ -189,7 +214,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     final theme = Theme.of(context);
     final bool canNavigate =
         (isPickup && currentStatus == 'accepted') ||
-        (!isPickup && ['picked_up', 'on_the_way'].contains(currentStatus));
+        (!isPickup && ['picked_up', 'delivered'].contains(currentStatus));
     final bool canAction =
         (isPickup && currentStatus == 'accepted') ||
         (!isPickup && currentStatus == 'picked_up');
@@ -270,7 +295,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                       ),
                     ),
                   ),
-                if (!isPickup && currentStatus == 'on_the_way')
+                if (!isPickup && currentStatus == 'delivered')
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () => Navigator.pushNamed(
@@ -311,9 +336,21 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       );
       if (result == true) {
         await _orderService.updateOrderStatus(order['id'], 'picked_up');
+        if (!context.mounted) return;
+        final nextOrder = Map<String, dynamic>.from(order);
+        if (_pharmacy != null) {
+          nextOrder['pharmacy_address'] = _pharmacy?['address'];
+          nextOrder['pharmacy_lat'] = _pharmacy?['lat'];
+          nextOrder['pharmacy_lng'] = _pharmacy?['lng'];
+        }
+        Navigator.pushNamed(
+          context,
+          AppRoutes.liveDelivery,
+          arguments: nextOrder,
+        );
       }
     } else {
-      await _orderService.updateOrderStatus(order['id'], 'on_the_way');
+      await _orderService.updateOrderStatus(order['id'], 'picked_up');
     }
   }
 }
