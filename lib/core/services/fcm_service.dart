@@ -178,27 +178,4 @@ class FCMService {
   }
 
   static Future<void> _saveTokenToSupabase(String token) async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) {
-      debugPrint('FCMService: Skipping token save (no user logged in)');
-      return;
-    }
-
-    try {
-      final now = DateTime.now().toIso8601String();
-      debugPrint('FCMService: Saving token for user=${user.id}');
-
-      // Store token on the existing profile row.
-      // NOTE: this assumes your profiles table has columns: id (uuid) and fcm_token (text).
-      await Supabase.instance.client.from('profiles').upsert({
-        'id': user.id,
-        'fcm_token': token,
-        'updated_at': now,
-      });
-
-      debugPrint('FCMService: Token saved to profiles');
-    } catch (e) {
-      debugPrint('FCMService: Failed to save token to profiles: $e');
-    }
-  }
 }
