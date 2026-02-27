@@ -49,6 +49,7 @@ class _AvailableOrdersList extends StatefulWidget {
 
 class __AvailableOrdersListState extends State<_AvailableOrdersList> {
   final OrderService _orderService = OrderService();
+  int _refreshToken = 0;
 
   @override
   void initState() {
@@ -92,27 +93,59 @@ class __AvailableOrdersListState extends State<_AvailableOrdersList> {
           ),
         ),
         Expanded(
-          child: StreamBuilder<List<Map<String, dynamic>>>(
-            stream: _orderService.getIncomingOrders(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError) {
-                return Center(child: Text('Error: ${snapshot.error}'));
-              }
-              final orders = snapshot.data ?? [];
-              if (orders.isEmpty) {
-                return _buildEmptyAvailableOrders();
-              }
-              return ListView.builder(
-                padding: const EdgeInsets.all(16.0),
-                itemCount: orders.length,
-                itemBuilder: (context, index) {
-                  return _AvailableOrderCard(order: orders[index]);
-                },
-              );
+          child: RefreshIndicator(
+            onRefresh: () async {
+              if (!mounted) return;
+              setState(() => _refreshToken++);
             },
+            child: StreamBuilder<List<Map<String, dynamic>>>(
+              stream: _orderService.getIncomingOrders(),
+              builder: (context, snapshot) {
+                // tie rebuilds to manual refresh
+                final _ = _refreshToken;
+
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: const [
+                      SizedBox(height: 200),
+                      Center(child: CircularProgressIndicator()),
+                    ],
+                  );
+                }
+                if (snapshot.hasError) {
+                  return ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      const SizedBox(height: 200),
+                      Center(child: Text('Error: ${snapshot.error}')),
+                    ],
+                  );
+                }
+
+                final orders = snapshot.data ?? [];
+                if (orders.isEmpty) {
+                  return ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.12,
+                      ),
+                      _buildEmptyAvailableOrders(),
+                    ],
+                  );
+                }
+
+                return ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16.0),
+                  itemCount: orders.length,
+                  itemBuilder: (context, index) {
+                    return _AvailableOrderCard(order: orders[index]);
+                  },
+                );
+              },
+            ),
           ),
         ),
       ],
@@ -157,6 +190,14 @@ class _AvailableOrderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final orderService = OrderService();
+    final String pharmacyTitle = (order['pharmacy_id'] != null)
+        ? 'Pharmacy #${order['pharmacy_id'].toString().substring(0, 8).toUpperCase()}'
+        : 'Pharmacy Request';
+    final String addressText =
+        (order['delivery_address'] as String?) ??
+        (order['customer_address'] as String?) ??
+        'Delivery Address N/A';
+    final double amount = (order['total_amount'] as num?)?.toDouble() ?? 0.0;
     final double? distanceMeters = (order['distance_meters'] as num?)
         ?.toDouble();
     final String distanceText = distanceMeters != null
@@ -187,7 +228,7 @@ class _AvailableOrderCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          order['pharmacy_name'] ?? 'Pharmacy Request',
+                          pharmacyTitle,
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: Colors.blue.shade900,
@@ -235,7 +276,7 @@ class _AvailableOrderCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      order['customer_address'] ?? 'Delivery Address N/A',
+                      addressText,
                       style: theme.textTheme.bodyMedium,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -255,7 +296,7 @@ class _AvailableOrderCard extends StatelessWidget {
                         style: TextStyle(color: Colors.grey, fontSize: 12),
                       ),
                       Text(
-                        '₹${(order['payout'] as num?)?.toDouble() ?? 0.0}',
+                        '₹$amount',
                         style: theme.textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: Colors.green.shade700,
@@ -324,10 +365,8 @@ class __MyOrdersListState extends State<_MyOrdersList> {
         final activeOrders = allOrders
             .where(
               (o) => [
-                'assigned',
                 'accepted',
                 'picked_up',
-                'on_the_way',
                 'delivered',
               ].contains(o['status']?.toString().toLowerCase()),
             )
@@ -484,8 +523,6 @@ class _OrderListItem extends StatelessWidget {
         return Colors.red;
       case 'picked_up':
         return Colors.orange;
-      case 'on_the_way':
-        return Colors.blue;
       case 'accepted':
         return Colors.blue;
       default:
@@ -617,10 +654,6 @@ class _StatusBadge extends StatelessWidget {
       case 'picked_up':
         return Colors.orange;
       case 'accepted':
-        return Colors.blue;
-      case 'on_the_way':
-        return Colors.blue;
-      case 'assigned':
         return Colors.blue;
       default:
         return Colors.grey;

@@ -35,10 +35,20 @@ class OrderService {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception('User not logged in');
 
-    await _client
-        .from('orders')
-        .update({'status': 'accepted', 'delivery_partner_id': userId})
-        .eq('id', orderId);
+    try {
+      // Keep status='accepted' (DB constraint does not allow 'assigned').
+      // Assign the driver id into both columns for compatibility.
+      await _client
+          .from('orders')
+          .update({
+            'delivery_partner_id': userId,
+            'delivery_partner_assigned_id': userId,
+          })
+          .eq('id', orderId);
+    } catch (e) {
+      debugPrint('OrderService.acceptOrder failed: $e');
+      rethrow;
+    }
   }
 
   Future<void> rejectOrder(String orderId) async {
@@ -107,7 +117,9 @@ class OrderService {
     await _client
         .from('orders')
         .update({'last_activity_at': DateTime.now().toIso8601String()})
-        .eq('delivery_partner_id', userId)
+        .or(
+          'delivery_partner_id.eq.$userId,delivery_partner_assigned_id.eq.$userId',
+        )
         .eq('status', 'accepted');
   }
 
@@ -130,13 +142,7 @@ class OrderService {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return Stream.value(null);
 
-    final activeStatuses = [
-      'assigned',
-      'accepted',
-      'picked_up',
-      'on_the_way',
-      'delivered',
-    ];
+    final activeStatuses = ['accepted', 'picked_up', 'delivered'];
     return _client
         .from('orders')
         .stream(primaryKey: ['id'])
@@ -183,7 +189,7 @@ class OrderService {
     final List<Map<String, dynamic>> allOrders =
         List<Map<String, dynamic>>.from(response);
 
-    final activeStatuses = ['accepted', 'picked_up', 'on_the_way', 'delivered'];
+    final activeStatuses = ['accepted', 'picked_up', 'delivered'];
     final pastStatuses = ['completed', 'cancelled'];
 
     final activeOrders = allOrders
