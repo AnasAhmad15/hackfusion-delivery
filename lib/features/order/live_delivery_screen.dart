@@ -138,9 +138,7 @@ class _LiveDeliveryScreenState extends State<LiveDeliveryScreen> {
         });
         await _ensureLocationsLoaded();
         
-        if (statusChanged) {
-          navigateToDestination();
-        }
+        // Removed auto-redirection on status change
       }
     });
   }
@@ -162,10 +160,7 @@ class _LiveDeliveryScreenState extends State<LiveDeliveryScreen> {
 
   bool _initialRedirectDone = false;
   void _checkInitialAutoRedirect() {
-    if (!_initialRedirectDone) {
-      _initialRedirectDone = true;
-      navigateToDestination();
-    }
+    // Disabled initial auto-redirect
   }
 
   Future<void> _loadPharmacyLocation(String pharmacyId) async {
@@ -248,7 +243,9 @@ class _LiveDeliveryScreenState extends State<LiveDeliveryScreen> {
   }
 
   Future<void> openGoogleMaps(double lat, double lng) async {
-    final String googleMapsUrl = 'google.navigation:q=$lat,$lng&mode=d';
+    // travelmode=motorcycle is the standard for 2-wheelers in Google Maps URLs
+    // 'mode=l' (lowercase L) is used for 2-wheeler/motorcycle in Google Maps native intents
+    final String googleMapsUrl = 'google.navigation:q=$lat,$lng&mode=l'; 
     final Uri uri = Uri.parse(googleMapsUrl);
     
     try {
@@ -257,7 +254,8 @@ class _LiveDeliveryScreenState extends State<LiveDeliveryScreen> {
         await launchUrl(uri);
       } else {
         debugPrint('LiveDelivery: Native intent failed, falling back to HTTPS URL');
-        final String fallbackUrl = 'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving';
+        // mode=b is for bicycling, travelmode=motorcycle is for two-wheelers
+        final String fallbackUrl = 'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=motorcycle';
         final Uri fallbackUri = Uri.parse(fallbackUrl);
         if (await canLaunchUrl(fallbackUri)) {
           await launchUrl(fallbackUri, mode: LaunchMode.externalApplication);
@@ -366,13 +364,10 @@ class _LiveDeliveryScreenState extends State<LiveDeliveryScreen> {
           await _loadCustomerLocation(userId);
         }
 
-        // 4. Trigger auto-redirection to CUSTOMER
-        if (_deliveryLocation != null) {
-          debugPrint('LiveDelivery: Auto-redirecting to customer at $_deliveryLocation');
-          openGoogleMaps(_deliveryLocation!.latitude, _deliveryLocation!.longitude);
-        } else {
+        // 4. Removed auto-redirection to CUSTOMER
+        if (_deliveryLocation == null) {
           debugPrint('LiveDelivery: Customer location missing after refresh, trying geocoding/fallback...');
-          navigateToDestination();
+          _ensureLocationsLoaded();
         }
       }
     }
@@ -426,69 +421,199 @@ class _LiveDeliveryScreenState extends State<LiveDeliveryScreen> {
 
   Widget _buildBottomCard(LanguageProvider lp) {
     final status = (_order!['status'] as String? ?? 'accepted').toLowerCase();
-    // Accepted/Ready/Preparing mean we need to pick up from pharmacy
     final bool isEnRouteToPharmacy = ['accepted', 'ready', 'preparing', 'assigned'].contains(status);
     
     return Positioned(
       bottom: 0, left: 0, right: 0,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: const BoxDecoration(
-          color: Colors.white, 
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)]
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(status.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.blue)),
-            const SizedBox(height: 8),
-            Text(
-              isEnRouteToPharmacy 
-                ? lp.translate('heading_pharmacy') 
-                : lp.translate('heading_customer'),
-              style: const TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-            const SizedBox(height: 16),
-            Row(children: [
-              if (_customerPhone != null) 
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _makePhoneCall(_customerPhone!), 
-                    icon: const Icon(Icons.call),
-                    label: Text(lp.translate('call')),
-                    style: OutlinedButton.styleFrom(minimumSize: const Size(0, 50)),
-                  )
-                ),
-              const SizedBox(width: 8),
-              Expanded(flex: 2, child: Column(
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: navigateToDestination, 
-                    icon: const Icon(Icons.navigation),
-                    label: Text(lp.translate('re_direct')),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue, 
-                      foregroundColor: Colors.white, 
-                      minimumSize: const Size(double.infinity, 50)
-                    ),
+      child: TweenAnimationBuilder<double>(
+        duration: const Duration(milliseconds: 600),
+        tween: Tween(begin: 1.0, end: 0.0),
+        curve: Curves.easeOutQuart,
+        builder: (context, value, child) {
+          return Transform.translate(
+            offset: Offset(0, value * 200),
+            child: child,
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 20,
+                offset: const Offset(0, -5),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                  const SizedBox(height: 8),
-                  ElevatedButton(
-                    onPressed: _isUpdatingStatus ? null : (isEnRouteToPharmacy ? _handlePickedUp : _handleDelivered), 
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 50),
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white
+                ),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isEnRouteToPharmacy ? 'Pickup From' : 'Deliver To',
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        isEnRouteToPharmacy 
+                          ? (_pharmacyName ?? 'Loading pharmacy...')
+                          : (_customerName ?? 'Loading customer...'),
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Text(_isUpdatingStatus 
-                      ? lp.translate('updating') 
-                      : (isEnRouteToPharmacy ? lp.translate('confirm_pickup') : lp.translate('confirm_delivery'))),
+                    child: Text(
+                      status.replaceAll('_', ' ').toUpperCase(),
+                      style: const TextStyle(
+                        color: Colors.blue,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10,
+                      ),
+                    ),
                   ),
                 ],
-              )),
-            ])
-          ],
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey.shade100),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.location_on, color: Colors.redAccent, size: 20),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        isEnRouteToPharmacy 
+                          ? (_pickupAddress ?? 'Fetching address...')
+                          : (_deliveryAddress ?? 'Fetching address...'),
+                        style: TextStyle(
+                          color: Colors.grey.shade800,
+                          fontSize: 14,
+                          height: 1.4,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  if (_customerPhone != null)
+                    Container(
+                      margin: const EdgeInsets.only(right: 12),
+                      child: IconButton.filled(
+                        onPressed: () => _makePhoneCall(_customerPhone!),
+                        icon: const Icon(Icons.call),
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.blue.shade50,
+                          foregroundColor: Colors.blue,
+                          fixedSize: const Size(54, 54),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                      ),
+                    ),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: navigateToDestination,
+                      icon: const Icon(Icons.navigation_rounded),
+                      label: const Text(
+                        'NAVIGATE',
+                        style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(0, 54),
+                        elevation: 4,
+                        shadowColor: Colors.blue.withOpacity(0.4),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isUpdatingStatus ? null : (isEnRouteToPharmacy ? _handlePickedUp : _handleDelivered),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(0, 54),
+                    elevation: 4,
+                    shadowColor: Colors.green.withOpacity(0.4),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: _isUpdatingStatus
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : Text(
+                          isEnRouteToPharmacy ? 'CONFIRM PICKUP' : 'CONFIRM DELIVERY',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

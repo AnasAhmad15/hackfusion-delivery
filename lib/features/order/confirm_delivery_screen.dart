@@ -45,28 +45,19 @@ class _ConfirmDeliveryScreenState extends State<ConfirmDeliveryScreen> {
     }
   }
 
-  Future<void> _confirmDelivery() async {
-    if (_imageFile == null || _selectedPaymentMethod == null) return;
-    if (_selectedPaymentMethod == 'Cash' && !_formKey.currentState!.validate()) return;
-
+  Future<Map<String, dynamic>> _confirmDelivery() async {
     setState(() => _isLoading = true);
 
     try {
-      final double totalAmount = (widget.order['total_amount'] as num?)?.toDouble() ?? 0.0;
-      final double amountReceived = _selectedPaymentMethod == 'Cash' 
-          ? double.tryParse(_amountController.text) ?? 0.0 
-          : totalAmount;
-
+      // Demo mode: skip all validations and just update status
       final result = await _orderService.completeOrderWithDetails(
         orderId: widget.order['id'],
-        imageFile: _imageFile!,
-        paymentMethod: _selectedPaymentMethod!,
-        amountReceived: amountReceived,
-        paymentStatus: (_selectedPaymentMethod == 'Already Paid Online' || _selectedPaymentMethod == 'UPI' || _selectedPaymentMethod == 'Card') ? 'paid' : 'paid',
+        paymentMethod: _selectedPaymentMethod ?? 'Cash',
       );
 
       if (result['success'] == true && mounted) {
         _showSuccessAnimation();
+        return result;
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: ${result['message']}')),
@@ -81,6 +72,7 @@ class _ConfirmDeliveryScreenState extends State<ConfirmDeliveryScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+    return {'success': false};
   }
 
   void _showSuccessAnimation() {
@@ -285,17 +277,17 @@ class _ConfirmDeliveryScreenState extends State<ConfirmDeliveryScreen> {
   }
 
   Widget _buildConfirmButton() {
-    final bool isReady = _imageFile != null && _selectedPaymentMethod != null;
     return ElevatedButton(
-      onPressed: isReady ? _confirmDelivery : null,
+      onPressed: _confirmDelivery,
       style: ElevatedButton.styleFrom(
-        minimumSize: const Size(double.infinity, 54),
+        padding: const EdgeInsets.symmetric(vertical: 16),
         backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
-      child: const Text('CONFIRM DELIVERY', 
-        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+      child: const Text(
+        'CONFIRM DELIVERY',
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+      ),
     );
   }
 }

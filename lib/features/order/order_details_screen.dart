@@ -137,78 +137,123 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     final stages = ['accepted', 'picked_up', 'delivered'];
     final currentIndex = stages.indexOf(status);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 10),
-      decoration: BoxDecoration(
-        color: Colors.blue.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: List.generate(stages.length, (index) {
-              final isCompleted = index <= currentIndex;
-              final isLast = index == stages.length - 1;
-              return Expanded(
-                child: Row(
-                  children: [
-                    Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isCompleted ? Colors.blue : Colors.grey.shade300,
-                        border: Border.all(
-                          color: isCompleted
-                              ? Colors.blue
-                              : Colors.grey.shade300,
-                          width: 2,
-                        ),
-                      ),
-                      child: isCompleted
-                          ? const Icon(
-                              Icons.check,
-                              size: 14,
-                              color: Colors.white,
+    return TweenAnimationBuilder<double>(
+      duration: const Duration(milliseconds: 800),
+      tween: Tween(begin: 0.0, end: 1.0),
+      curve: Curves.easeOutBack,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.scale(
+            scale: 0.95 + (0.05 * value),
+            child: child,
+          ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.blue.shade50, Colors.white],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.blue.withOpacity(0.05),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: List.generate(stages.length, (index) {
+                final isCompleted = index <= currentIndex;
+                final isCurrent = index == currentIndex;
+                final isLast = index == stages.length - 1;
+                
+                return Expanded(
+                  child: Row(
+                    children: [
+                      // Stage Circle
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isCompleted ? Colors.blue : Colors.white,
+                          border: Border.all(
+                            color: isCompleted ? Colors.blue : Colors.grey.shade300,
+                            width: 2,
+                          ),
+                          boxShadow: isCurrent ? [
+                            BoxShadow(
+                              color: Colors.blue.withOpacity(0.3),
+                              blurRadius: 8,
+                              spreadRadius: 2,
                             )
-                          : null,
-                    ),
-                    if (!isLast)
-                      Expanded(
-                        child: Container(
-                          height: 2,
-                          color: index < currentIndex
-                              ? Colors.blue
-                              : Colors.grey.shade300,
+                          ] : null,
+                        ),
+                        child: Center(
+                          child: isCompleted
+                              ? const Icon(Icons.check, size: 18, color: Colors.white)
+                              : Text(
+                                  '${index + 1}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade400,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                         ),
                       ),
-                  ],
-                ),
-              );
-            }),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _timelineLabel('Accepted', status == 'accepted'),
-              _timelineLabel('Picked Up', status == 'picked_up'),
-              _timelineLabel('Arrived', status == 'delivered'),
-            ],
-          ),
-        ],
+                      // Connector Line
+                      if (!isLast)
+                        Expanded(
+                          child: Container(
+                            height: 3,
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(2),
+                              color: index < currentIndex
+                                  ? Colors.blue
+                                  : Colors.grey.shade200,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              }),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _timelineLabel('Accepted', status == 'accepted'),
+                _timelineLabel('Picked Up', status == 'picked_up'),
+                _timelineLabel('Delivered', status == 'delivered'),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _timelineLabel(String label, bool isActive) {
-    return Text(
-      label,
+    return AnimatedDefaultTextStyle(
+      duration: const Duration(milliseconds: 300),
       style: TextStyle(
-        fontSize: 10,
-        fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-        color: isActive ? Colors.blue : Colors.grey,
+        fontSize: 12,
+        fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+        color: isActive ? Colors.blue : Colors.grey.shade400,
+        letterSpacing: 0.5,
       ),
+      child: Text(label),
     );
   }
 
@@ -222,108 +267,210 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   }) {
     final theme = Theme.of(context);
     final bool canNavigate =
-        ['accepted', 'ready', 'preparing', 'picked_up', 'delivered'].contains(currentStatus);
+        ['accepted', 'ready', 'preparing', 'picked_up'].contains(currentStatus);
     final bool canAction =
         (isPickup && ['accepted', 'ready', 'preparing'].contains(currentStatus)) ||
         (!isPickup && currentStatus == 'picked_up');
+    
+    // Specifically check if we should show the navigate button for THIS card
+    final bool showNavigateForThisCard = canNavigate && (
+      (isPickup && ['accepted', 'ready', 'preparing'].contains(currentStatus)) ||
+      (!isPickup && currentStatus == 'picked_up')
+    );
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.shade100),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(
-                  isPickup ? Icons.storefront : Icons.location_on_outlined,
-                  color: Colors.blue,
-                  size: 20,
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+            // Header
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              color: isPickup ? Colors.blue.shade50.withOpacity(0.5) : Colors.orange.shade50.withOpacity(0.5),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: isPickup ? Colors.blue.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      isPickup ? Icons.storefront_rounded : Icons.person_pin_circle_rounded,
+                      color: isPickup ? Colors.blue : Colors.orange,
+                      size: 20,
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 12),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: isPickup ? Colors.blue.shade900 : Colors.orange.shade900,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const Spacer(),
+                  if (!isPickup && order['customer_name'] != null)
+                    Text(
+                      order['customer_name'],
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                ],
+              ),
             ),
-            const SizedBox(height: 12),
-            Text(
-              address,
-              style: TextStyle(color: Colors.grey.shade800, height: 1.4),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                if (canNavigate)
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => Navigator.pushReplacementNamed(
-                        context,
-                        AppRoutes.liveDelivery,
-                        arguments: order,
-                      ),
-                      icon: const Icon(Icons.navigation_outlined, size: 18),
-                      label: const Text('NAVIGATE'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+            
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.location_on_rounded, color: Colors.grey.shade400, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          address,
+                          style: TextStyle(
+                            color: Colors.grey.shade800,
+                            fontSize: 14,
+                            height: 1.5,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                if (canNavigate && canAction) const SizedBox(width: 12),
-                if (canAction)
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () =>
-                          _handleMainAction(context, order, isPickup),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isPickup
-                            ? theme.primaryColor
-                            : Colors.orange,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                  
+                  if (!isPickup && order['customer_phone'] != null) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Icon(Icons.phone_android_rounded, color: Colors.grey.shade400, size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          order['customer_phone'],
+                          style: TextStyle(
+                            color: Colors.blue.shade700,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                        elevation: 0,
-                      ),
-                      child: Text(
-                        isPickup ? 'CONFIRM PICKUP' : 'CONFIRM DELIVERY',
-                      ),
+                      ],
                     ),
-                  ),
-                if (!isPickup && currentStatus == 'delivered')
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pushReplacementNamed(
-                        context,
-                        AppRoutes.liveDelivery,
-                        arguments: order,
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                  ],
+
+                  const SizedBox(height: 24),
+                  
+                  Row(
+                    children: [
+                      if (showNavigateForThisCard)
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () => Navigator.pushNamed(
+                              context,
+                              AppRoutes.liveDelivery,
+                              arguments: order,
+                            ),
+                            icon: const Icon(Icons.directions_rounded, size: 18),
+                            label: const Text('NAVIGATE'),
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              backgroundColor: Colors.white,
+                              foregroundColor: Colors.blue,
+                              elevation: 0,
+                              side: BorderSide(color: Colors.blue.shade100, width: 1.5),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                          ),
                         ),
-                        elevation: 0,
-                      ),
-                      child: const Text('ARRIVED'),
-                    ),
+                      if (showNavigateForThisCard && canAction) const SizedBox(width: 12),
+                      if (canAction)
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: (isPickup ? Colors.blue : Colors.orange).withOpacity(0.3),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: ElevatedButton(
+                              onPressed: () => _handleMainAction(context, order, isPickup),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isPickup ? Colors.blue : Colors.orange,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              child: Text(
+                                isPickup ? 'CONFIRM PICKUP' : 'CONFIRM DELIVERY',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (!isPickup && currentStatus == 'delivered')
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade50,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.green.shade200),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.check_circle_rounded, color: Colors.green.shade700, size: 20),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'DELIVERED',
+                                  style: TextStyle(
+                                    color: Colors.green.shade700,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
@@ -352,11 +499,8 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
           nextOrder['pharmacy_lat'] = _pharmacy?['lat'];
           nextOrder['pharmacy_lng'] = _pharmacy?['lng'];
         }
-        Navigator.pushReplacementNamed(
-          context,
-          AppRoutes.liveDelivery,
-          arguments: nextOrder,
-        );
+        // Instead of redirecting to liveDelivery, just stay on OrderDetails
+        // The StreamBuilder will pick up the 'picked_up' status and update the UI
       }
     } else {
       // Handle Delivery Confirmation

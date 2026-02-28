@@ -446,7 +446,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(lp.translate('recent_activity'), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            Text(lp.translate('available_orders'), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
             TextButton(
               onPressed: () => widget.onTabChange(1),
               child: Text(lp.translate('view_all')),
@@ -454,26 +454,113 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
           ],
         ),
         const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.grey[50],
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            children: [
-              Icon(Icons.history, color: Colors.grey[400], size: 48),
-              const SizedBox(height: 12),
-              Text(
-                lp.translate('no_recent_activity'),
-                style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w500),
-              ),
-              Text(
-                lp.translate('complete_orders_to_see'),
-                style: TextStyle(color: Colors.grey[400], fontSize: 12),
-              ),
-            ],
-          ),
+        StreamBuilder<List<Map<String, dynamic>>>(
+          stream: _orderService.getIncomingOrders(),
+          builder: (context, snapshot) {
+            final orders = snapshot.data ?? [];
+            final availableOrders = orders.take(5).toList();
+
+            if (availableOrders.isEmpty) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: [
+                    Icon(Icons.shopping_bag_outlined, color: Colors.grey[400], size: 48),
+                    const SizedBox(height: 12),
+                    Text(
+                      lp.translate('no_orders_nearby'),
+                      style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w500),
+                    ),
+                    Text(
+                      lp.translate('notify_new_orders'),
+                      style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: availableOrders.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final order = availableOrders[index];
+                
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey.shade100),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.local_shipping_outlined, color: theme.primaryColor, size: 20),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Order #${order['id'].toString().substring(0, 8).toUpperCase()}',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              order['delivery_address'] ?? 'No address',
+                              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '₹${order['total_amount'] ?? '0'}',
+                            style: TextStyle(fontWeight: FontWeight.bold, color: theme.primaryColor),
+                          ),
+                          ElevatedButton(
+                            onPressed: () async {
+                              await _orderService.acceptOrder(order['id']);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(lp.translate('order_accepted')), backgroundColor: Colors.green),
+                                );
+                                Navigator.pushNamed(context, AppRoutes.liveDelivery, arguments: order);
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                              minimumSize: const Size(0, 30),
+                              textStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                            ),
+                            child: Text(lp.translate('accept')),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
         ),
       ],
     );

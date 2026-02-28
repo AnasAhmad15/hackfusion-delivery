@@ -161,21 +161,52 @@ class FCMService {
         return;
       }
 
+      final requestBody = {
+        'fcm_token': token,
+        'name': user.userMetadata?['full_name'] ?? 'Driver',
+        'type': type,
+        'role': 'delivery_partner',
+      };
+      print('FCMService: Request Body: $requestBody');
+
       print('FCMService: Invoking Edge Function "welcome-notification"...');
       final response = await Supabase.instance.client.functions.invoke(
         'welcome-notification',
-        body: {
-          'fcm_token': token,
-          'name': user.userMetadata?['full_name'] ?? 'Driver',
-          'type': type,
-          'role': 'delivery_partner',
-        },
+        body: requestBody,
       );
+      
       print('FCMService: Edge Function response status: ${response.status}');
+      print('FCMService: Edge Function response data: ${response.data}');
+      
+      if (response.status >= 400) {
+        print('FCMService: ERROR - Received status ${response.status}');
+      }
     } catch (e) {
+      if (e is FunctionException) {
+        print('FCMService: FunctionException - Status: ${e.status}');
+        print('FCMService: FunctionException - Details: ${e.details}');
+        print('FCMService: FunctionException - Info: $e');
+      }
       print('FCMService: Error invoking Edge Function: $e');
     }
   }
 
   static Future<void> _saveTokenToSupabase(String token) async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return;
+
+      print('FCMService: Saving token to profile for user: ${user.id}');
+      
+      // Update the fcm_token in the profiles table
+      await Supabase.instance.client
+          .from('profiles')
+          .update({'fcm_token': token})
+          .eq('id', user.id);
+          
+      print('FCMService: Token saved successfully');
+    } catch (e) {
+      print('FCMService: Error saving token to Supabase: $e');
+    }
+  }
 }
