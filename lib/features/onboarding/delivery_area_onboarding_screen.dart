@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:pharmaco_delivery_partner/app/widgets/custom_button.dart';
 import 'package:pharmaco_delivery_partner/core/models/onboarding_profile.dart';
 import 'package:pharmaco_delivery_partner/app/routes/app_routes.dart';
 import 'package:pharmaco_delivery_partner/core/services/profile_service.dart';
+import 'package:pharmaco_delivery_partner/theme/design_tokens.dart';
 
 class DeliveryAreaOnboardingScreen extends StatefulWidget {
   final OnboardingProfile profile;
@@ -61,7 +61,7 @@ class _DeliveryAreaOnboardingScreenState extends State<DeliveryAreaOnboardingScr
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Delivery area updated successfully!'),
-              backgroundColor: Colors.green,
+              backgroundColor: PharmacoTokens.success,
             ),
           );
           if (widget.isEditing) {
@@ -75,10 +75,10 @@ class _DeliveryAreaOnboardingScreenState extends State<DeliveryAreaOnboardingScr
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Failed to update area: ${e.toString()}'),
-              backgroundColor: Colors.red,
+              backgroundColor: PharmacoTokens.error,
               action: SnackBarAction(
                 label: 'RETRY',
-                textColor: Colors.white,
+                textColor: PharmacoTokens.white,
                 onPressed: _submit,
               ),
             ),
@@ -103,6 +103,7 @@ class _DeliveryAreaOnboardingScreenState extends State<DeliveryAreaOnboardingScr
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: PharmacoTokens.neutral50,
       appBar: AppBar(
         title: Text(widget.isEditing ? 'Edit Delivery Area' : 'Delivery Area (3/4)'),
       ),
@@ -115,7 +116,7 @@ class _DeliveryAreaOnboardingScreenState extends State<DeliveryAreaOnboardingScr
             children: [
               const Text(
                 'Set your service location to start receiving nearby orders.',
-                style: TextStyle(color: Colors.grey, fontSize: 16),
+                style: TextStyle(color: PharmacoTokens.neutral500, fontSize: 16),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
@@ -126,7 +127,7 @@ class _DeliveryAreaOnboardingScreenState extends State<DeliveryAreaOnboardingScr
                   hintText: 'Enter manually or use map',
                   prefixIcon: const Icon(Icons.location_on),
                   suffixIcon: IconButton(
-                    icon: Icon(Icons.map_outlined, color: Theme.of(context).primaryColor),
+                    icon: const Icon(Icons.map_outlined, color: PharmacoTokens.primaryBase),
                     onPressed: _pickLocationFromMap,
                     tooltip: 'Select on map',
                   ),
@@ -145,11 +146,11 @@ class _DeliveryAreaOnboardingScreenState extends State<DeliveryAreaOnboardingScr
                 ),
               ),
               const SizedBox(height: 48),
-              CustomButton(
-                text: _isLoading 
-                    ? (widget.isEditing ? 'SAVING...' : 'UPLOADING...') 
-                    : (widget.isEditing ? 'SAVE CHANGES' : 'CONTINUE'),
+              ElevatedButton(
                 onPressed: (_isLoading || (widget.isEditing && !_hasChanges)) ? null : _submit,
+                child: Text(_isLoading 
+                    ? (widget.isEditing ? 'SAVING...' : 'UPLOADING...') 
+                    : (widget.isEditing ? 'SAVE CHANGES' : 'CONTINUE')),
               ),
             ],
           ),

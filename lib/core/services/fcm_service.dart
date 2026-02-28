@@ -192,21 +192,4 @@ class FCMService {
   }
 
   static Future<void> _saveTokenToSupabase(String token) async {
-    try {
-      final user = Supabase.instance.client.auth.currentUser;
-      if (user == null) return;
-
-      print('FCMService: Saving token to profile for user: ${user.id}');
-      
-      // Update the fcm_token in the profiles table
-      await Supabase.instance.client
-          .from('profiles')
-          .update({'fcm_token': token})
-          .eq('id', user.id);
-          
-      print('FCMService: Token saved successfully');
-    } catch (e) {
-      print('FCMService: Error saving token to Supabase: $e');
-    }
-  }
 }

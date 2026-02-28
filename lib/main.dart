@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:pharmaco_delivery_partner/app/routes/app_routes.dart';
-import 'package:pharmaco_delivery_partner/app/theme/app_theme.dart';
+import 'package:pharmaco_delivery_partner/theme/pharmaco_theme.dart';
 import 'package:pharmaco_delivery_partner/core/services/supabase_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:pharmaco_delivery_partner/features/navigation/main_navigation_screen.dart';
@@ -11,18 +11,41 @@ import 'package:pharmaco_delivery_partner/core/services/fcm_service.dart';
 import 'package:pharmaco_delivery_partner/core/providers/language_provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 
+import 'dart:async';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  FlutterError.onError = (FlutterErrorDetails details) {
+    debugPrint('=== FLUTTER ERROR ===');
+    debugPrint('EXCEPTION: ${details.exception}');
+    debugPrint('LIBRARY: ${details.library}');
+    debugPrint('CONTEXT: ${details.context}');
+    final stackLines = details.stack?.toString().split('\n') ?? [];
+    for (int i = 0; i < stackLines.length && i < 10; i++) {
+      debugPrint('  ${stackLines[i]}');
+    }
+    debugPrint('... total frames: ${stackLines.length}');
+    debugPrint('=== END ERROR ===');
+  };
+
   await Firebase.initializeApp();
   await SupabaseService.initialize();
   await FCMService.initialize();
   
-  runApp(
-    ChangeNotifierProvider(
-      create: (_) => LanguageProvider(),
-      child: const PharmaCoApp(),
-    ),
-  );
+  runZonedGuarded(() {
+    runApp(
+      ChangeNotifierProvider(
+        create: (_) => LanguageProvider(),
+        child: const PharmaCoApp(),
+      ),
+    );
+  }, (error, stackTrace) {
+    debugPrint('=== ZONE ERROR ===');
+    debugPrint('$error');
+    debugPrint('$stackTrace');
+    debugPrint('=== END ZONE ERROR ===');
+  });
 }
 
 class PharmaCoApp extends StatelessWidget {
@@ -33,7 +56,9 @@ class PharmaCoApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'PharmaCo Delivery',
-      theme: AppTheme.theme,
+      theme: PharmacoTheme.lightTheme,
+      darkTheme: PharmacoTheme.darkTheme,
+      themeMode: ThemeMode.light,
       home: const AuthWrapper(),
       onGenerateRoute: AppRoutes.onGenerateRoute,
       routes: AppRoutes.routes,

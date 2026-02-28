@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:pharmaco_delivery_partner/app/widgets/custom_button.dart';
 import 'package:pharmaco_delivery_partner/core/services/map_location_service.dart';
+import 'package:pharmaco_delivery_partner/theme/design_tokens.dart';
 
 class MapLocationSelectionScreen extends StatefulWidget {
   const MapLocationSelectionScreen({super.key});
@@ -71,7 +71,6 @@ class _MapLocationSelectionScreenState extends State<MapLocationSelectionScreen>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
 
     return Scaffold(
       body: Stack(
@@ -90,10 +89,10 @@ class _MapLocationSelectionScreenState extends State<MapLocationSelectionScreen>
           Center(
             child: Padding(
               padding: const EdgeInsets.only(bottom: 35), // Compensate for pin height
-              child: Icon(
+              child: const Icon(
                 Icons.location_on,
                 size: 50,
-                color: theme.primaryColor,
+                color: PharmacoTokens.primaryBase,
               ),
             ),
           ),
@@ -104,15 +103,9 @@ class _MapLocationSelectionScreenState extends State<MapLocationSelectionScreen>
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
+                color: PharmacoTokens.white,
+                borderRadius: PharmacoTokens.borderRadiusMedium,
+                boxShadow: PharmacoTokens.shadowZ1(),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -139,7 +132,7 @@ class _MapLocationSelectionScreenState extends State<MapLocationSelectionScreen>
                     padding: EdgeInsets.only(left: 48.0),
                     child: Text(
                       'Move the map to set your delivery area.',
-                      style: TextStyle(color: Colors.grey, fontSize: 14),
+                      style: TextStyle(color: PharmacoTokens.neutral500, fontSize: 14),
                     ),
                   ),
                 ],
@@ -155,8 +148,8 @@ class _MapLocationSelectionScreenState extends State<MapLocationSelectionScreen>
               mini: true,
               backgroundColor: Colors.white,
               child: _isLocating 
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : Icon(Icons.my_location, color: theme.primaryColor),
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: PharmacoTokens.primaryBase))
+                : const Icon(Icons.my_location, color: PharmacoTokens.primaryBase),
               onPressed: _determinePosition,
             ),
           ),
@@ -168,16 +161,10 @@ class _MapLocationSelectionScreenState extends State<MapLocationSelectionScreen>
             bottom: 0,
             child: Container(
               padding: const EdgeInsets.all(24),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 15,
-                    spreadRadius: 5,
-                  ),
-                ],
+              decoration: BoxDecoration(
+                color: PharmacoTokens.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(PharmacoTokens.radiusCard)),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 15, spreadRadius: 5)],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -185,12 +172,12 @@ class _MapLocationSelectionScreenState extends State<MapLocationSelectionScreen>
                 children: [
                   const Text(
                     'Selected Area:',
-                    style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500),
+                    style: TextStyle(color: PharmacoTokens.neutral500, fontWeight: PharmacoTokens.weightMedium),
                   ),
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Icon(Icons.place, color: theme.primaryColor, size: 20),
+                      Icon(Icons.place_rounded, color: PharmacoTokens.primaryBase, size: 20),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -206,8 +193,7 @@ class _MapLocationSelectionScreenState extends State<MapLocationSelectionScreen>
                     ],
                   ),
                   const SizedBox(height: 24),
-                  CustomButton(
-                    text: 'CONFIRM LOCATION',
+                  ElevatedButton(
                     onPressed: () {
                       Navigator.pop(context, {
                         'address': _currentAddress,
@@ -215,6 +201,7 @@ class _MapLocationSelectionScreenState extends State<MapLocationSelectionScreen>
                         'lng': _currentCenter.longitude,
                       });
                     },
+                    child: const Text('CONFIRM LOCATION'),
                   ),
                 ],
               ),

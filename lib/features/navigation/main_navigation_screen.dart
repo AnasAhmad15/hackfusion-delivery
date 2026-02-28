@@ -7,6 +7,7 @@ import 'package:pharmaco_delivery_partner/features/profile/profile_screen.dart';
 import 'package:pharmaco_delivery_partner/core/services/order_service.dart';
 import 'package:pharmaco_delivery_partner/core/services/profile_service.dart';
 import 'package:pharmaco_delivery_partner/core/providers/language_provider.dart';
+import 'package:pharmaco_delivery_partner/theme/design_tokens.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -52,21 +53,15 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       _currentIndex = index;
     });
     if (index == 3) {
-      _fetchProfilePhoto(); // Refresh photo when profile tab is opened
+      _fetchProfilePhoto();
     }
   }
-
-  List<String> _getTitles(LanguageProvider lp) => [
-        lp.translate('dashboard'),
-        lp.translate('orders'),
-        lp.translate('my_earnings'),
-        lp.translate('profile_account'),
-      ];
 
   @override
   Widget build(BuildContext context) {
     final lp = Provider.of<LanguageProvider>(context);
-    final titles = _getTitles(lp);
+    final theme = Theme.of(context);
+
     return WillPopScope(
       onWillPop: () async {
         final shouldExit = await showDialog<bool>(
@@ -82,7 +77,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
                 style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red, foregroundColor: Colors.white),
+                  backgroundColor: PharmacoTokens.error,
+                  foregroundColor: PharmacoTokens.white,
+                  minimumSize: const Size(100, 44),
+                ),
                 child: Text(lp.translate('exit')),
               ),
             ],
@@ -92,18 +90,29 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text(titles[_currentIndex]),
+          backgroundColor: PharmacoTokens.white,
+          elevation: 0,
+          surfaceTintColor: Colors.transparent,
+          title: Text(
+            _getAppBarTitle(lp),
+            style: theme.textTheme.headlineMedium?.copyWith(
+              fontWeight: PharmacoTokens.weightBold,
+              color: PharmacoTokens.neutral900,
+            ),
+          ),
           actions: [
-            if (_currentIndex != 3) // Don't show on profile screen itself
+            if (_currentIndex != 3) // Hide profile icon when on Profile tab
               Padding(
-                padding: const EdgeInsets.only(right: 16.0),
+                padding: const EdgeInsets.only(right: PharmacoTokens.space16),
                 child: GestureDetector(
                   onTap: () => _onItemTapped(3),
                   child: CircleAvatar(
-                    backgroundImage: _profilePhotoUrl != null
-                        ? NetworkImage(_profilePhotoUrl!)
+                    radius: 18,
+                    backgroundColor: PharmacoTokens.primarySurface,
+                    backgroundImage: _profilePhotoUrl != null ? NetworkImage(_profilePhotoUrl!) : null,
+                    child: _profilePhotoUrl == null
+                        ? const Icon(Icons.person_rounded, size: 20, color: PharmacoTokens.primaryBase)
                         : null,
-                    child: _profilePhotoUrl == null ? const Icon(Icons.person) : null,
                   ),
                 ),
               ),
@@ -113,54 +122,95 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           index: _currentIndex,
           children: _widgetOptions,
         ),
-        bottomNavigationBar: BottomNavigationBar(
-          items: <BottomNavigationBarItem>[
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.home_outlined),
-              activeIcon: const Icon(Icons.home),
-              label: lp.translate('home'),
-            ),
-            BottomNavigationBarItem(
-              icon: StreamBuilder<int>(
-                stream: _orderService.getAvailableOrdersCountStream(),
-                builder: (context, snapshot) {
-                  final count = snapshot.data ?? 0;
-                  return Badge(
-                    label: Text(count.toString()),
-                    isLabelVisible: count > 0,
-                    child: const Icon(Icons.list_alt_outlined),
-                  );
-                },
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            color: PharmacoTokens.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 12,
+                offset: const Offset(0, -2),
               ),
-              activeIcon: StreamBuilder<int>(
-                stream: _orderService.getAvailableOrdersCountStream(),
-                builder: (context, snapshot) {
-                  final count = snapshot.data ?? 0;
-                  return Badge(
-                    label: Text(count.toString()),
-                    isLabelVisible: count > 0,
-                    child: const Icon(Icons.list_alt),
-                  );
-                },
+            ],
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: PharmacoTokens.space8,
+                vertical: PharmacoTokens.space8,
               ),
-              label: lp.translate('orders'),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildNavItem(Icons.home_outlined, Icons.home_rounded, 0),
+                  _buildNavItem(Icons.list_alt_outlined, Icons.list_alt_rounded, 1, badgeStream: true),
+                  _buildNavItem(Icons.account_balance_wallet_outlined, Icons.account_balance_wallet_rounded, 2),
+                  _buildNavItem(Icons.person_outline_rounded, Icons.person_rounded, 3),
+                ],
+              ),
             ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.account_balance_wallet_outlined),
-              activeIcon: const Icon(Icons.account_balance_wallet),
-              label: lp.translate('earnings'),
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.person_outline),
-              activeIcon: const Icon(Icons.person),
-              label: lp.translate('profile'),
-            ),
-          ],
-          currentIndex: _currentIndex,
-          onTap: _onItemTapped,
-          type: BottomNavigationBarType.fixed,
+          ),
         ),
       ),
     );
+  }
+
+  Widget _buildNavItem(IconData icon, IconData activeIcon, int index, {bool badgeStream = false}) {
+    final isSelected = _currentIndex == index;
+    
+    Widget baseIcon = Icon(
+      isSelected ? activeIcon : icon,
+      color: isSelected ? PharmacoTokens.primaryBase : PharmacoTokens.neutral400,
+      size: 26,
+    );
+
+    Widget iconWidget = baseIcon;
+
+    if (badgeStream) {
+      iconWidget = StreamBuilder<int>(
+        stream: _orderService.getAvailableOrdersCountStream(),
+        builder: (context, snapshot) {
+          final count = snapshot.data ?? 0;
+          return Badge(
+            label: Text(count.toString(), style: const TextStyle(fontSize: 10, color: PharmacoTokens.white)),
+            isLabelVisible: count > 0,
+            backgroundColor: PharmacoTokens.error,
+            child: baseIcon,
+          );
+        },
+      );
+    }
+
+    return GestureDetector(
+      onTap: () => _onItemTapped(index),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: PharmacoTokens.durationMedium,
+        padding: EdgeInsets.symmetric(
+          horizontal: isSelected ? PharmacoTokens.space20 : PharmacoTokens.space12,
+          vertical: PharmacoTokens.space8,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected ? PharmacoTokens.primarySurface : Colors.transparent,
+          borderRadius: PharmacoTokens.borderRadiusFull,
+        ),
+        child: iconWidget,
+      ),
+    );
+  }
+
+  String _getAppBarTitle(LanguageProvider lp) {
+    switch (_currentIndex) {
+      case 0:
+        return lp.translate('home'); // or 'Dashboard'
+      case 1:
+        return lp.translate('orders');
+      case 2:
+        return lp.translate('earnings');
+      case 3:
+        return lp.translate('profile');
+      default:
+        return 'PharmaCo Delivery';
+    }
   }
 }

@@ -8,6 +8,7 @@ import 'package:pharmaco_delivery_partner/app/routes/app_routes.dart';
 import 'package:pharmaco_delivery_partner/core/services/earnings_service.dart';
 import 'package:pharmaco_delivery_partner/core/services/documents_service.dart';
 import 'package:pharmaco_delivery_partner/core/providers/language_provider.dart';
+import 'package:pharmaco_delivery_partner/theme/design_tokens.dart';
 
 class HomeScreen extends StatefulWidget {
   final void Function(int) onTabChange;
@@ -56,12 +57,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${lp.translate('failed_to_load_profile')}: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            action: SnackBarAction(
-              label: lp.translate('retry'),
-              textColor: Colors.white,
-              onPressed: _fetchInitialState,
-            ),
+            backgroundColor: PharmacoTokens.error,
+            action: SnackBarAction(label: lp.translate('retry'), textColor: Colors.white, onPressed: _fetchInitialState),
           ),
         );
       }
@@ -70,17 +67,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
 
   void _toggleAvailability(bool hasActiveOrder) async {
     final lp = Provider.of<LanguageProvider>(context, listen: false);
-    if (!_isVerified) {
-      _showVerificationRequiredSheet(lp);
-      return;
-    }
+    if (!_isVerified) { _showVerificationRequiredSheet(lp); return; }
 
     if (hasActiveOrder && _isAvailable) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(lp.translate('cannot_go_offline_active_order')),
-          backgroundColor: Colors.orange,
-        ),
+        SnackBar(content: Text(lp.translate('cannot_go_offline_active_order')), backgroundColor: PharmacoTokens.warning),
       );
       return;
     }
@@ -90,54 +81,32 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
     
     try {
       await _profileService.updateAvailability(newStatus);
-      if (newStatus) {
-        _listenForIncomingOrders();
-      } else {
-        _orderSubscription?.cancel();
-      }
+      if (newStatus) { _listenForIncomingOrders(); } else { _orderSubscription?.cancel(); }
     } catch (e) {
       setState(() => _isAvailable = !newStatus);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
     }
   }
 
   void _showVerificationRequiredSheet(LanguageProvider lp) {
+    final theme = Theme.of(context);
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (context) => Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(PharmacoTokens.space24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.verified_user_outlined, size: 64, color: Colors.orange),
-            const SizedBox(height: 16),
-            Text(
-              lp.translate('verification_pending'),
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              lp.translate('complete_verification_long_desc'),
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.grey),
-            ),
-            const SizedBox(height: 24),
+            CircleAvatar(radius: 32, backgroundColor: PharmacoTokens.warningLight, child: const Icon(Icons.verified_user_outlined, size: 32, color: PharmacoTokens.warning)),
+            const SizedBox(height: PharmacoTokens.space16),
+            Text(lp.translate('verification_pending'), style: theme.textTheme.titleLarge),
+            const SizedBox(height: PharmacoTokens.space8),
+            Text(lp.translate('complete_verification_long_desc'), textAlign: TextAlign.center, style: theme.textTheme.bodyMedium?.copyWith(color: PharmacoTokens.neutral500)),
+            const SizedBox(height: PharmacoTokens.space24),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, AppRoutes.documentsVerification);
-                },
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
+                onPressed: () { Navigator.pop(context); Navigator.pushNamed(context, AppRoutes.documentsVerification); },
                 child: Text(lp.translate('complete_verification')),
               ),
             ),
@@ -151,7 +120,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
     _orderSubscription?.cancel();
     _orderSubscription = _orderService.getIncomingOrders().listen((orders) async {
       if (orders.isNotEmpty && _isAvailable && mounted) {
-        // Check if there is already an active order before showing the incoming order screen
         final activeOrder = await _orderService.getActiveOrderStream().first;
         if (activeOrder == null && mounted) {
           Navigator.pushNamed(context, AppRoutes.incomingOrder, arguments: orders.first);
@@ -163,10 +131,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
   }
 
   @override
-  void dispose() {
-    _orderSubscription?.cancel();
-    super.dispose();
-  }
+  void dispose() { _orderSubscription?.cancel(); super.dispose(); }
 
   @override
   bool get wantKeepAlive => true;
@@ -181,15 +146,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
       stream: _profileService.getProfileStream(),
       builder: (context, profileSnapshot) {
         final profileData = profileSnapshot.data;
-        
-        // Update local status variables from stream data
         if (profileSnapshot.hasData) {
           _isAvailable = profileData?['is_available'] ?? false;
           _isProfileComplete = profileData?['profile_completed'] ?? false;
         }
 
         return Scaffold(
-          backgroundColor: Colors.white,
+          backgroundColor: PharmacoTokens.neutral50,
           body: StreamBuilder<Map<String, dynamic>?>(
             stream: _orderService.getActiveOrderStream(),
             builder: (context, activeOrderSnapshot) {
@@ -198,19 +161,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
 
               return SafeArea(
                 child: RefreshIndicator(
+                  color: PharmacoTokens.primaryBase,
                   onRefresh: _fetchInitialState,
                   child: ListView(
-                    padding: const EdgeInsets.all(20.0),
+                    padding: const EdgeInsets.all(PharmacoTokens.space20),
                     children: [
                       if (!_isVerified) _buildVerificationBanner(theme, lp),
                       _buildHeader(theme, hasActiveOrder, lp),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: PharmacoTokens.space24),
                       if (hasActiveOrder) ...[
                         _buildActiveDeliveryCard(theme, activeOrder, lp),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: PharmacoTokens.space24),
                       ],
                       _buildStatsGrid(theme, lp),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: PharmacoTokens.space24),
                       _buildRecentActivitySection(theme, lp),
                     ],
                   ),
@@ -225,35 +189,29 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
 
   Widget _buildVerificationBanner(ThemeData theme, LanguageProvider lp) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 24),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: PharmacoTokens.space24),
+      padding: const EdgeInsets.all(PharmacoTokens.space16),
       decoration: BoxDecoration(
-        color: Colors.orange.shade50,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.orange.shade100),
+        color: PharmacoTokens.warningLight,
+        borderRadius: PharmacoTokens.borderRadiusMedium,
+        border: Border.all(color: PharmacoTokens.warning.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.info_outline, color: Colors.orange),
-          const SizedBox(width: 12),
+          const Icon(Icons.info_outline_rounded, color: PharmacoTokens.warning),
+          const SizedBox(width: PharmacoTokens.space12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  lp.translate('verification_required'),
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.orange),
-                ),
-                Text(
-                  lp.translate('complete_verification_desc'),
-                  style: TextStyle(fontSize: 12, color: Colors.orange.shade800),
-                ),
+                Text(lp.translate('verification_required'), style: theme.textTheme.bodySmall?.copyWith(fontWeight: PharmacoTokens.weightBold, color: PharmacoTokens.warning)),
+                Text(lp.translate('complete_verification_desc'), style: theme.textTheme.labelSmall?.copyWith(color: PharmacoTokens.neutral700)),
               ],
             ),
           ),
           TextButton(
             onPressed: () => Navigator.pushNamed(context, AppRoutes.documentsVerification),
-            child: Text(lp.translate('complete').toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            child: Text(lp.translate('complete').toUpperCase()),
           ),
         ],
       ),
@@ -261,33 +219,48 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
   }
 
   Widget _buildHeader(ThemeData theme, bool hasActiveOrder, LanguageProvider lp) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              _isAvailable ? lp.translate('online') : lp.translate('offline'),
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: _isAvailable ? Colors.green : Colors.grey,
+    return Container(
+      padding: const EdgeInsets.all(PharmacoTokens.space20),
+      decoration: BoxDecoration(
+        color: PharmacoTokens.white,
+        borderRadius: PharmacoTokens.borderRadiusCard,
+        boxShadow: PharmacoTokens.shadowZ1(),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(width: 10, height: 10, decoration: BoxDecoration(
+                    color: _isAvailable ? PharmacoTokens.success : PharmacoTokens.neutral400,
+                    shape: BoxShape.circle,
+                  )),
+                  const SizedBox(width: PharmacoTokens.space8),
+                  Text(
+                    _isAvailable ? lp.translate('online') : lp.translate('offline'),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: PharmacoTokens.weightBold,
+                      color: _isAvailable ? PharmacoTokens.success : PharmacoTokens.neutral500,
+                    ),
+                  ),
+                ],
               ),
-            ),
-            Text(
-              _isAvailable ? lp.translate('waiting_for_orders') : lp.translate('go_online_to_earn'),
-              style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
-            ),
-          ],
-        ),
-        Switch.adaptive(
-          value: _isAvailable,
-          activeColor: Colors.green,
-          onChanged: (_) => _isProfileComplete 
-              ? _toggleAvailability(hasActiveOrder) 
-              : _promptToCompleteProfile(lp),
-        ),
-      ],
+              const SizedBox(height: 4),
+              Text(
+                _isAvailable ? lp.translate('waiting_for_orders') : lp.translate('go_online_to_earn'),
+                style: theme.textTheme.bodySmall?.copyWith(color: PharmacoTokens.neutral400),
+              ),
+            ],
+          ),
+          Switch.adaptive(
+            value: _isAvailable,
+            onChanged: (_) => _isProfileComplete ? _toggleAvailability(hasActiveOrder) : _promptToCompleteProfile(lp),
+          ),
+        ],
+      ),
     );
   }
 
@@ -297,66 +270,49 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
     
     return Container(
       decoration: BoxDecoration(
-        color: theme.primaryColor,
-        borderRadius: BorderRadius.circular(16),
+        gradient: const LinearGradient(
+          colors: [PharmacoTokens.primaryBase, PharmacoTokens.primaryDark, Color(0xFF1E3A8A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: PharmacoTokens.borderRadiusCard,
         boxShadow: [
-          BoxShadow(
-            color: theme.primaryColor.withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
+          BoxShadow(color: PharmacoTokens.primaryBase.withValues(alpha: 0.3), blurRadius: 16, offset: const Offset(0, 8)),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: () => Navigator.pushNamed(context, AppRoutes.orderDetails, arguments: order),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: PharmacoTokens.borderRadiusCard,
           child: Padding(
-            padding: const EdgeInsets.all(20.0),
+            padding: const EdgeInsets.all(PharmacoTokens.space20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      lp.translate('active_delivery'),
-                      style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2),
-                    ),
+                    Text(lp.translate('active_delivery'), style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: PharmacoTokens.weightBold, letterSpacing: 1.2)),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white24,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        status,
-                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: PharmacoTokens.space8, vertical: PharmacoTokens.space4),
+                      decoration: BoxDecoration(color: Colors.white24, borderRadius: PharmacoTokens.borderRadiusSmall),
+                      child: Text(status, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: PharmacoTokens.weightBold)),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  'Order #${order['id'].toString().substring(0, 8).toUpperCase()}',
-                  style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                ),
+                const SizedBox(height: PharmacoTokens.space12),
+                Text('Order #${order['id'].toString().substring(0, 8).toUpperCase()}', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: PharmacoTokens.weightBold)),
                 const SizedBox(height: 4),
-                Text(
-                  order['customer_address'] ?? 'Loading address...',
-                  style: const TextStyle(color: Colors.white70, fontSize: 14),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 16),
+                Text(order['customer_address'] ?? 'Loading address...', style: const TextStyle(color: Colors.white70, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: PharmacoTokens.space16),
                 Row(
                   children: [
                     const Icon(Icons.directions_run, color: Colors.white, size: 18),
-                    const SizedBox(width: 8),
-                    Text(lp.translate('tap_to_view_details'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+                    const SizedBox(width: PharmacoTokens.space8),
+                    Text(lp.translate('tap_to_view_details'), style: const TextStyle(color: Colors.white, fontWeight: PharmacoTokens.weightMedium)),
                     const Spacer(),
-                    const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 14),
+                    const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 14),
                   ],
                 ),
               ],
@@ -369,59 +325,44 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
 
   Widget _buildStatsGrid(ThemeData theme, LanguageProvider lp) {
     return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 16,
-      crossAxisSpacing: 16,
-      childAspectRatio: 1.5,
+      crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: PharmacoTokens.space16, crossAxisSpacing: PharmacoTokens.space16, childAspectRatio: 1.5,
       children: [
-        _buildStatCard(
-          theme,
-          lp.translate('todays_earnings'),
-          _earningsService.getTodaysEarningsStream(),
-          Icons.account_balance_wallet_outlined,
-          Colors.blue,
-          isCurrency: true,
-        ),
-        _buildStatCard(
-          theme,
-          lp.translate('completed'),
-          _orderService.getCompletedDeliveriesCount(),
-          Icons.check_circle_outline,
-          Colors.green,
-        ),
+        _buildStatCard(theme, lp.translate('todays_earnings'), _earningsService.getTodaysEarningsStream(), Icons.account_balance_wallet_outlined, PharmacoTokens.primaryBase, isCurrency: true),
+        _buildStatCard(theme, lp.translate('completed'), _orderService.getCompletedDeliveriesCount(), Icons.check_circle_outline_rounded, PharmacoTokens.success),
       ],
     );
   }
 
   Widget _buildStatCard(ThemeData theme, String label, dynamic data, IconData icon, Color color, {bool isCurrency = false}) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(PharmacoTokens.space16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade100),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
-        ],
+        color: color.withValues(alpha: 0.05),
+        border: Border.all(color: color.withValues(alpha: 0.1)),
+        borderRadius: PharmacoTokens.borderRadiusCard,
+        boxShadow: PharmacoTokens.shadowZ1(),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Icon(icon, color: color, size: 24),
+          Container(
+            padding: const EdgeInsets.all(PharmacoTokens.space8),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: PharmacoTokens.borderRadiusSmall),
+            child: Icon(icon, color: color, size: 22),
+          ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-              const SizedBox(height: 4),
+              Text(label, style: theme.textTheme.labelSmall?.copyWith(color: PharmacoTokens.neutral400)),
+              const SizedBox(height: 2),
               if (data is Stream<double>)
                 StreamBuilder<double>(
                   stream: data,
                   builder: (context, snapshot) => Text(
-                    '${isCurrency ? '₹' : ''}${snapshot.data?.toStringAsFixed(isCurrency ? 0 : 0) ?? '0'}',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    '${isCurrency ? '₹' : ''}${snapshot.data?.toStringAsFixed(0) ?? '0'}',
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: PharmacoTokens.weightBold),
                   ),
                 )
               else if (data is Future<int>)
@@ -429,7 +370,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
                   future: data,
                   builder: (context, snapshot) => Text(
                     '${snapshot.data ?? 0}',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: PharmacoTokens.weightBold),
                   ),
                 ),
             ],
@@ -446,7 +387,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(lp.translate('available_orders'), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            Text(lp.translate('recent_activity'), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
             TextButton(
               onPressed: () => widget.onTabChange(1),
               child: Text(lp.translate('view_all')),
@@ -454,113 +395,26 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
           ],
         ),
         const SizedBox(height: 8),
-        StreamBuilder<List<Map<String, dynamic>>>(
-          stream: _orderService.getIncomingOrders(),
-          builder: (context, snapshot) {
-            final orders = snapshot.data ?? [];
-            final availableOrders = orders.take(5).toList();
-
-            if (availableOrders.isEmpty) {
-              return Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.grey[50],
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  children: [
-                    Icon(Icons.shopping_bag_outlined, color: Colors.grey[400], size: 48),
-                    const SizedBox(height: 12),
-                    Text(
-                      lp.translate('no_orders_nearby'),
-                      style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w500),
-                    ),
-                    Text(
-                      lp.translate('notify_new_orders'),
-                      style: TextStyle(color: Colors.grey[400], fontSize: 12),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            return ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: availableOrders.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final order = availableOrders[index];
-                
-                return Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.shade100),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(Icons.local_shipping_outlined, color: theme.primaryColor, size: 20),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Order #${order['id'].toString().substring(0, 8).toUpperCase()}',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            Text(
-                              order['delivery_address'] ?? 'No address',
-                              style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            '₹${order['total_amount'] ?? '0'}',
-                            style: TextStyle(fontWeight: FontWeight.bold, color: theme.primaryColor),
-                          ),
-                          ElevatedButton(
-                            onPressed: () async {
-                              await _orderService.acceptOrder(order['id']);
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text(lp.translate('order_accepted')), backgroundColor: Colors.green),
-                                );
-                                Navigator.pushNamed(context, AppRoutes.liveDelivery, arguments: order);
-                              }
-                            },
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                              minimumSize: const Size(0, 30),
-                              textStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-                            ),
-                            child: Text(lp.translate('accept')),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              },
-            );
-          },
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.grey[50],
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            children: [
+              Icon(Icons.history, color: Colors.grey[400], size: 48),
+              const SizedBox(height: 12),
+              Text(
+                lp.translate('no_recent_activity'),
+                style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w500),
+              ),
+              Text(
+                lp.translate('complete_orders_to_see'),
+                style: TextStyle(color: Colors.grey[400], fontSize: 12),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -575,11 +429,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
           onPressed: () async {
             final profile = await _profileService.getProfile();
             if (mounted) {
-              Navigator.pushNamed(
-                context, 
-                AppRoutes.editPersonalDetails, 
-                arguments: OnboardingProfile.fromMap(profile),
-              );
+              Navigator.pushNamed(context, AppRoutes.editPersonalDetails, arguments: OnboardingProfile.fromMap(profile));
             }
           },
         ),

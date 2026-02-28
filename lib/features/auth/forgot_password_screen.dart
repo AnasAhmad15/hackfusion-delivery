@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:pharmaco_delivery_partner/app/widgets/custom_button.dart';
 import 'package:pharmaco_delivery_partner/core/services/auth_service.dart';
+import 'package:pharmaco_delivery_partner/theme/design_tokens.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -15,9 +15,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   bool _isLoading = false;
 
   Future<void> _sendResetEmail() async {
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
     try {
       await _authService.sendPasswordResetEmail(_emailController.text.trim());
       if (mounted) {
@@ -33,11 +31,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         );
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -45,55 +39,71 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
+      backgroundColor: PharmacoTokens.neutral50,
       appBar: AppBar(
-        title: const Text('Reset Password'),
+        backgroundColor: PharmacoTokens.white, elevation: 0,
+        scrolledUnderElevation: PharmacoTokens.elevationZ1,
+        surfaceTintColor: Colors.transparent,
+        title: Text('Reset Password', style: theme.textTheme.headlineMedium),
+        iconTheme: const IconThemeData(color: PharmacoTokens.neutral700),
       ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
+            padding: const EdgeInsets.all(PharmacoTokens.space24),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Icon(Icons.lock_reset, size: 80, color: theme.primaryColor),
-                const SizedBox(height: 24),
-                Text(
-                  'Forgot Your Password?',
-                  style: theme.textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
+                CircleAvatar(
+                  radius: 44,
+                  backgroundColor: PharmacoTokens.primarySurface,
+                  child: const Icon(Icons.lock_reset_rounded, size: 44, color: PharmacoTokens.primaryBase),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Enter your email to receive a reset link.',
-                  style: theme.textTheme.titleMedium?.copyWith(color: Colors.grey[600]),
-                  textAlign: TextAlign.center,
+                const SizedBox(height: PharmacoTokens.space24),
+                Text('Forgot Your Password?', style: theme.textTheme.headlineLarge, textAlign: TextAlign.center),
+                const SizedBox(height: PharmacoTokens.space8),
+                Text('Enter your email to receive a reset link.', style: theme.textTheme.bodyMedium?.copyWith(color: PharmacoTokens.neutral500), textAlign: TextAlign.center),
+                const SizedBox(height: PharmacoTokens.space40),
+
+                Container(
+                  padding: const EdgeInsets.all(PharmacoTokens.space24),
+                  decoration: BoxDecoration(
+                    color: PharmacoTokens.white,
+                    borderRadius: PharmacoTokens.borderRadiusCard,
+                    boxShadow: PharmacoTokens.shadowZ1(),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Email Address', style: theme.textTheme.bodySmall?.copyWith(fontWeight: PharmacoTokens.weightSemiBold, color: PharmacoTokens.neutral700)),
+                      const SizedBox(height: PharmacoTokens.space8),
+                      TextField(
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: const InputDecoration(
+                          hintText: 'Enter your email',
+                          prefixIcon: Icon(Icons.email_outlined, color: PharmacoTokens.primaryBase, size: 20),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 48),
-                _buildTextField(_emailController, 'Email Address', Icons.email_outlined),
-                const SizedBox(height: 32),
-                CustomButton(
-                  text: _isLoading ? 'SENDING...' : 'SEND RESET LINK',
-                  onPressed: _isLoading ? () {} : _sendResetEmail,
+                const SizedBox(height: PharmacoTokens.space32),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _sendResetEmail,
+                    child: _isLoading
+                        ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+                        : const Text('SEND RESET LINK'),
+                  ),
                 ),
               ],
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildTextField(TextEditingController controller, String label, IconData icon) {
-    return TextField(
-      controller: controller,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
       ),
     );
   }
