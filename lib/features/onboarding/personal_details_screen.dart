@@ -2,9 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:pharmaco_delivery_partner/app/routes/app_routes.dart';
-import 'package:pharmaco_delivery_partner/app/widgets/custom_button.dart';
 import 'package:pharmaco_delivery_partner/core/models/onboarding_profile.dart';
 import 'package:pharmaco_delivery_partner/core/services/profile_service.dart';
+import 'package:pharmaco_delivery_partner/theme/design_tokens.dart';
 
 class PersonalDetailsScreen extends StatefulWidget {
   final OnboardingProfile profile;
@@ -153,7 +153,7 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Profile updated successfully!'),
-              backgroundColor: Colors.green,
+              backgroundColor: PharmacoTokens.success,
             ),
           );
           if (widget.isEditing) {
@@ -168,10 +168,10 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Failed to update profile: ${e.toString()}'),
-              backgroundColor: Colors.red,
+              backgroundColor: PharmacoTokens.error,
               action: SnackBarAction(
                 label: 'RETRY',
-                textColor: Colors.white,
+                textColor: PharmacoTokens.white,
                 onPressed: _submit,
               ),
             ),
@@ -187,6 +187,7 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
+      backgroundColor: PharmacoTokens.neutral50,
       appBar: AppBar(
         title: Text(widget.isEditing ? 'Edit Personal Details' : 'Personal Details (1/4)'),
       ),
@@ -202,10 +203,10 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                   onTap: _pickImage,
                   child: CircleAvatar(
                     radius: 60,
-                    backgroundColor: Colors.grey[200],
+                    backgroundColor: PharmacoTokens.primarySurface,
                     backgroundImage: _profileImage != null ? FileImage(_profileImage!) : null,
                     child: _profileImage == null
-                        ? Icon(Icons.camera_alt, color: Colors.grey[800], size: 50)
+                        ? const Icon(Icons.camera_alt_rounded, color: PharmacoTokens.primaryBase, size: 50)
                         : null,
                   ),
                 ),
@@ -277,11 +278,11 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
               const SizedBox(height: 24),
               _buildGenderDropdown(),
               const SizedBox(height: 48),
-              CustomButton(
-                text: _isLoading 
-                    ? (widget.isEditing ? 'SAVING...' : 'UPLOADING...') 
-                    : (widget.isEditing ? 'SAVE CHANGES' : 'CONTINUE'),
+              ElevatedButton(
                 onPressed: (_isLoading || (widget.isEditing && !_hasChanges)) ? null : _submit,
+                child: Text(_isLoading 
+                    ? (widget.isEditing ? 'SAVING...' : 'UPLOADING...') 
+                    : (widget.isEditing ? 'SAVE CHANGES' : 'CONTINUE')),
               ),
             ],
           ),

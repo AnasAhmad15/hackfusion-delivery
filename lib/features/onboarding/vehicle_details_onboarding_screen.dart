@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
-import 'package:pharmaco_delivery_partner/app/widgets/custom_button.dart';
 import 'package:pharmaco_delivery_partner/core/models/onboarding_profile.dart';
 import 'package:pharmaco_delivery_partner/app/routes/app_routes.dart';
 import 'package:pharmaco_delivery_partner/core/services/profile_service.dart';
 import 'package:pharmaco_delivery_partner/core/services/vehicle_service.dart';
 import 'package:pharmaco_delivery_partner/core/utils/validators.dart';
+import 'package:pharmaco_delivery_partner/theme/design_tokens.dart';
 
 class VehicleDetailsOnboardingScreen extends StatefulWidget {
   final OnboardingProfile profile;
@@ -77,7 +77,7 @@ class _VehicleDetailsOnboardingScreenState extends State<VehicleDetailsOnboardin
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Vehicle details updated successfully!'),
-              backgroundColor: Colors.green,
+              backgroundColor: PharmacoTokens.success,
             ),
           );
           if (widget.isEditing) {
@@ -91,10 +91,10 @@ class _VehicleDetailsOnboardingScreenState extends State<VehicleDetailsOnboardin
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Failed to update vehicle details: ${e.toString()}'),
-              backgroundColor: Colors.red,
+              backgroundColor: PharmacoTokens.error,
               action: SnackBarAction(
                 label: 'RETRY',
-                textColor: Colors.white,
+                textColor: PharmacoTokens.white,
                 onPressed: _submit,
               ),
             ),
@@ -109,6 +109,7 @@ class _VehicleDetailsOnboardingScreenState extends State<VehicleDetailsOnboardin
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: PharmacoTokens.neutral50,
       appBar: AppBar(
         title: Text(widget.isEditing ? 'Edit Vehicle Details' : 'Vehicle Details (2/4)'),
       ),
@@ -125,11 +126,11 @@ class _VehicleDetailsOnboardingScreenState extends State<VehicleDetailsOnboardin
               const SizedBox(height: 24),
               _buildRegistrationField(),
               const SizedBox(height: 48),
-              CustomButton(
-                text: _isLoading 
-                    ? (widget.isEditing ? 'SAVING...' : 'UPLOADING...') 
-                    : (widget.isEditing ? 'SAVE CHANGES' : 'CONTINUE'),
+              ElevatedButton(
                 onPressed: (_isLoading || (widget.isEditing && !_hasChanges)) ? null : _submit,
+                child: Text(_isLoading 
+                    ? (widget.isEditing ? 'SAVING...' : 'UPLOADING...') 
+                    : (widget.isEditing ? 'SAVE CHANGES' : 'CONTINUE')),
               ),
             ],
           ),
@@ -201,10 +202,10 @@ class _VehicleDetailsOnboardingScreenState extends State<VehicleDetailsOnboardin
         });
       },
       emptyBuilder: (context) => Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(PharmacoTokens.space16),
         child: Text(
           'No models found. You can enter manually.',
-          style: TextStyle(color: Colors.grey[600]),
+          style: const TextStyle(color: PharmacoTokens.neutral500),
         ),
       ),
     );

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:pharmaco_delivery_partner/app/widgets/custom_button.dart';
+import 'package:pharmaco_delivery_partner/theme/design_tokens.dart';
 
 class DeliveryAreasScreen extends StatefulWidget {
   const DeliveryAreasScreen({super.key});
@@ -14,75 +14,53 @@ class _DeliveryAreasScreenState extends State<DeliveryAreasScreen> {
 
   void _addArea() {
     if (_areaController.text.isNotEmpty) {
-      setState(() {
-        _deliveryAreas.add(_areaController.text.trim());
-        _areaController.clear();
-      });
+      setState(() { _deliveryAreas.add(_areaController.text.trim()); _areaController.clear(); });
     }
   }
 
-  void _removeArea(String area) {
-    setState(() {
-      _deliveryAreas.remove(area);
-    });
-  }
+  void _removeArea(String area) { setState(() => _deliveryAreas.remove(area)); }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Preferred Delivery Areas'),
-      ),
+      backgroundColor: PharmacoTokens.neutral50,
+      appBar: AppBar(title: const Text('Preferred Delivery Areas')),
       body: Column(
         children: [
           Expanded(
             child: ListView.builder(
+              padding: const EdgeInsets.all(PharmacoTokens.space16),
               itemCount: _deliveryAreas.length,
               itemBuilder: (context, index) {
                 final area = _deliveryAreas[index];
-                return ListTile(
-                  title: Text(area),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
-                    onPressed: () => _removeArea(area),
+                return Container(
+                  margin: const EdgeInsets.only(bottom: PharmacoTokens.space8),
+                  decoration: BoxDecoration(color: PharmacoTokens.white, borderRadius: PharmacoTokens.borderRadiusMedium, boxShadow: PharmacoTokens.shadowZ1()),
+                  child: ListTile(
+                    leading: const Icon(Icons.location_on_outlined, color: PharmacoTokens.primaryBase),
+                    title: Text(area, style: theme.textTheme.bodyMedium),
+                    trailing: IconButton(icon: const Icon(Icons.remove_circle_outline_rounded, color: PharmacoTokens.error), onPressed: () => _removeArea(area)),
                   ),
                 );
               },
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
+          Container(
+            padding: const EdgeInsets.all(PharmacoTokens.space16),
+            decoration: BoxDecoration(color: PharmacoTokens.white, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, -2))]),
+            child: Column(
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _areaController,
-                    decoration: InputDecoration(
-                      labelText: 'Add New Area',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
+                Row(
+                  children: [
+                    Expanded(child: TextField(controller: _areaController, decoration: const InputDecoration(labelText: 'Add New Area'))),
+                    const SizedBox(width: PharmacoTokens.space16),
+                    IconButton(icon: const Icon(Icons.add_circle_rounded, size: 40), onPressed: _addArea, color: PharmacoTokens.primaryBase),
+                  ],
                 ),
-                const SizedBox(width: 16),
-                IconButton(
-                  icon: const Icon(Icons.add_circle, size: 40),
-                  onPressed: _addArea,
-                  color: theme.primaryColor,
-                ),
+                const SizedBox(height: PharmacoTokens.space16),
+                SizedBox(width: double.infinity, child: ElevatedButton(onPressed: () => Navigator.pop(context), child: const Text('SAVE PREFERENCES'))),
               ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: CustomButton(
-              text: 'SAVE PREFERENCES',
-              onPressed: () {
-                // Placeholder for saving data
-                Navigator.pop(context);
-              },
             ),
           ),
         ],

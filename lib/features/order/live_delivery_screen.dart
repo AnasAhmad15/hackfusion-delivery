@@ -9,6 +9,7 @@ import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:pharmaco_delivery_partner/app/routes/app_routes.dart';
 import 'package:pharmaco_delivery_partner/core/providers/language_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:pharmaco_delivery_partner/theme/design_tokens.dart';
 
 class LiveDeliveryScreen extends StatefulWidget {
   const LiveDeliveryScreen({super.key});
@@ -38,10 +39,7 @@ class _LiveDeliveryScreenState extends State<LiveDeliveryScreen> {
   String? _lastProcessedStatus;
 
   @override
-  void initState() {
-    super.initState();
-    _initLocationTracking();
-  }
+  void initState() { super.initState(); _initLocationTracking(); }
 
   @override
   void didChangeDependencies() {
@@ -51,73 +49,45 @@ class _LiveDeliveryScreenState extends State<LiveDeliveryScreen> {
       if (_order == null) {
         _order = Map<String, dynamic>.from(arguments);
         final orderId = _order!['id']?.toString();
-        if (orderId != null) {
-          _subscribeToOrderStream(orderId);
-        }
+        if (orderId != null) _subscribeToOrderStream(orderId);
       }
       _ensureLocationsLoaded();
     }
   }
 
   @override
-  void dispose() {
-    _locationSubscription?.cancel();
-    _orderSubscription?.cancel();
-    super.dispose();
-  }
+  void dispose() { _locationSubscription?.cancel(); _orderSubscription?.cancel(); super.dispose(); }
 
   Future<void> _initLocationTracking() async {
     try {
       bool serviceEnabled = await geolocator.Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) return;
-
       geolocator.LocationPermission permission = await geolocator.Geolocator.checkPermission();
       if (permission == geolocator.LocationPermission.denied) {
         permission = await geolocator.Geolocator.requestPermission();
         if (permission == geolocator.LocationPermission.denied) return;
       }
-      
       if (permission == geolocator.LocationPermission.deniedForever) return;
-
-      final position = await geolocator.Geolocator.getCurrentPosition(
-        desiredAccuracy: geolocator.LocationAccuracy.high,
-      );
-      
+      final position = await geolocator.Geolocator.getCurrentPosition(desiredAccuracy: geolocator.LocationAccuracy.high);
       if (mounted) {
         final initialLatLng = LatLng(position.latitude, position.longitude);
         setState(() {
-          _currentLocationMarker = Marker(
-            markerId: const MarkerId('currentLocation'),
-            position: initialLatLng,
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-            infoWindow: const InfoWindow(title: 'My Location'),
-          );
+          _currentLocationMarker = Marker(markerId: const MarkerId('currentLocation'), position: initialLatLng, icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure), infoWindow: const InfoWindow(title: 'My Location'));
         });
       }
-    } catch (e) {
-      debugPrint('LiveDelivery: Error initializing location: $e');
-    }
+    } catch (e) { debugPrint('LiveDelivery: Error initializing location: $e'); }
     _listenToLocation();
   }
 
   void _listenToLocation() {
     _locationSubscription?.cancel();
     _locationSubscription = geolocator.Geolocator.getPositionStream(
-      locationSettings: const geolocator.LocationSettings(
-        accuracy: geolocator.LocationAccuracy.high,
-        distanceFilter: 10,
-      ),
+      locationSettings: const geolocator.LocationSettings(accuracy: geolocator.LocationAccuracy.high, distanceFilter: 10),
     ).listen((geolocator.Position position) {
       if (!mounted) return;
       final currentLatLng = LatLng(position.latitude, position.longitude);
       setState(() {
-        _currentLocationMarker = Marker(
-          markerId: const MarkerId('currentLocation'),
-          position: currentLatLng,
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-          rotation: position.heading,
-          infoWindow: const InfoWindow(title: 'My Location'),
-        );
+        _currentLocationMarker = Marker(markerId: const MarkerId('currentLocation'), position: currentLatLng, icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure), rotation: position.heading, infoWindow: const InfoWindow(title: 'My Location'));
       });
       _updateDriverLocationInSupabase(currentLatLng);
     });
@@ -130,17 +100,10 @@ class _LiveDeliveryScreenState extends State<LiveDeliveryScreen> {
       final newStatus = (data['status'] as String? ?? '').toLowerCase().trim();
       bool needsLocationReload = _pickupLocation == null || _deliveryLocation == null;
       bool statusChanged = newStatus != _lastProcessedStatus;
-
       if (statusChanged || needsLocationReload) {
-        setState(() {
-          _order = Map<String, dynamic>.from(data);
-          if (statusChanged) _lastProcessedStatus = newStatus;
-        });
+        setState(() { _order = Map<String, dynamic>.from(data); if (statusChanged) _lastProcessedStatus = newStatus; });
         await _ensureLocationsLoaded();
-        
-        if (statusChanged) {
-          navigateToDestination();
-        }
+        if (statusChanged) navigateToDestination();
       }
     });
   }
@@ -150,92 +113,59 @@ class _LiveDeliveryScreenState extends State<LiveDeliveryScreen> {
     if (order == null) return;
     final pharmacyId = order['pharmacy_id']?.toString();
     final userId = order['user_id']?.toString();
-    
     if (_pickupLocation == null && pharmacyId != null) await _loadPharmacyLocation(pharmacyId);
     if (_deliveryLocation == null && userId != null) await _loadCustomerLocation(userId);
     if (_customerPhone == null && userId != null) _loadCustomerPhone(userId);
-
-    if (_pickupLocation != null || _deliveryLocation != null) {
-      _checkInitialAutoRedirect();
-    }
+    if (_pickupLocation != null || _deliveryLocation != null) _checkInitialAutoRedirect();
   }
 
   bool _initialRedirectDone = false;
   void _checkInitialAutoRedirect() {
-    if (!_initialRedirectDone) {
-      _initialRedirectDone = true;
-      navigateToDestination();
-    }
+    if (!_initialRedirectDone) { _initialRedirectDone = true; navigateToDestination(); }
   }
 
   Future<void> _loadPharmacyLocation(String pharmacyId) async {
     debugPrint('LiveDelivery: _loadPharmacyLocation checking ID: $pharmacyId');
     try {
       final res = await _client.from('medical_partners').select('lat, lng, address, medical_name').eq('id', pharmacyId).maybeSingle();
-      
       if (res != null) {
         final double? lat = (res['lat'] as num?)?.toDouble();
         final double? lng = (res['lng'] as num?)?.toDouble();
         final String? address = res['address']?.toString();
-
         LatLng? resolved;
-        if (lat != null && lng != null) {
-          resolved = LatLng(lat, lng);
-        } else if (address != null && address.isNotEmpty) {
-          resolved = await _geocodeToLatLng(address);
-        }
-
+        if (lat != null && lng != null) { resolved = LatLng(lat, lng); }
+        else if (address != null && address.isNotEmpty) { resolved = await _geocodeToLatLng(address); }
         if (resolved != null && mounted) {
-          setState(() {
-            _pickupLocation = resolved;
-            _pickupAddress = address;
-            _pharmacyName = res['medical_name']?.toString() ?? 'Pharmacy';
-          });
+          setState(() { _pickupLocation = resolved; _pickupAddress = address; _pharmacyName = res['medical_name']?.toString() ?? 'Pharmacy'; });
           debugPrint('LiveDelivery: Pharmacy location resolved: $resolved');
         }
       }
-    } catch (e) {
-      debugPrint('LiveDelivery: Error loading pharmacy: $e');
-    }
+    } catch (e) { debugPrint('LiveDelivery: Error loading pharmacy: $e'); }
   }
 
   Future<void> _loadCustomerLocation(String userId) async {
     debugPrint('LiveDelivery: _loadCustomerLocation checking ID: $userId');
     try {
       final res = await _client.from('user_profiles').select('latitude, longitude, address, full_name').eq('id', userId).maybeSingle();
-      
       if (res != null) {
         final double? lat = (res['latitude'] as num?)?.toDouble();
         final double? lng = (res['longitude'] as num?)?.toDouble();
         final String? address = res['address']?.toString();
-
         LatLng? resolved;
-        if (lat != null && lng != null) {
-          resolved = LatLng(lat, lng);
-        } else if (address != null && address.isNotEmpty) {
-          resolved = await _geocodeToLatLng(address);
-        }
-
+        if (lat != null && lng != null) { resolved = LatLng(lat, lng); }
+        else if (address != null && address.isNotEmpty) { resolved = await _geocodeToLatLng(address); }
         if (resolved != null && mounted) {
-          setState(() {
-            _deliveryLocation = resolved;
-            _deliveryAddress = address;
-            _customerName = res['full_name']?.toString() ?? 'Customer';
-          });
+          setState(() { _deliveryLocation = resolved; _deliveryAddress = address; _customerName = res['full_name']?.toString() ?? 'Customer'; });
           debugPrint('LiveDelivery: Customer location resolved: $resolved');
         }
       }
-    } catch (e) {
-      debugPrint('LiveDelivery: Error loading customer: $e');
-    }
+    } catch (e) { debugPrint('LiveDelivery: Error loading customer: $e'); }
   }
 
   Future<void> _loadCustomerPhone(String userId) async {
     try {
       final data = await _client.from('user_profiles').select('phone_number').eq('id', userId).maybeSingle();
-      if (data != null && mounted) {
-        setState(() => _customerPhone = data['phone_number']?.toString());
-      }
+      if (data != null && mounted) setState(() => _customerPhone = data['phone_number']?.toString());
     } catch (_) {}
   }
 
@@ -250,7 +180,6 @@ class _LiveDeliveryScreenState extends State<LiveDeliveryScreen> {
   Future<void> openGoogleMaps(double lat, double lng) async {
     final String googleMapsUrl = 'google.navigation:q=$lat,$lng&mode=d';
     final Uri uri = Uri.parse(googleMapsUrl);
-    
     try {
       if (await canLaunchUrl(uri)) {
         debugPrint('LiveDelivery: Launching Google Maps Native Intent: $googleMapsUrl');
@@ -261,45 +190,31 @@ class _LiveDeliveryScreenState extends State<LiveDeliveryScreen> {
         final Uri fallbackUri = Uri.parse(fallbackUrl);
         if (await canLaunchUrl(fallbackUri)) {
           await launchUrl(fallbackUri, mode: LaunchMode.externalApplication);
-        } else {
-          throw 'Could not launch Google Maps or Browser';
-        }
+        } else { throw 'Could not launch Google Maps or Browser'; }
       }
     } catch (e) {
       debugPrint('LiveDelivery: Error launching navigation: $e');
       if (mounted) {
         final lp = Provider.of<LanguageProvider>(context, listen: false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${lp.translate('could_not_open_maps')}: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${lp.translate('could_not_open_maps')}: $e')));
       }
     }
   }
 
   void navigateToDestination() {
     if (_order == null) return;
-    
     final status = (_order!['status'] as String? ?? 'accepted').toLowerCase().trim();
     debugPrint('LiveDelivery: navigateToDestination current status: $status');
     LatLng? destination;
-    
-    // Statuses that mean we should go to the customer
     if (['picked_up', 'delivered', 'picked'].contains(status)) {
       destination = _deliveryLocation;
       debugPrint('LiveDelivery: Destination set to CUSTOMER: $destination');
     } else {
-      // Statuses like 'accepted', 'ready', 'preparing' mean go to pharmacy
       destination = _pickupLocation;
       debugPrint('LiveDelivery: Destination set to PHARMACY: $destination');
     }
-
-    if (destination != null) {
-      openGoogleMaps(destination.latitude, destination.longitude);
-    } else {
-      debugPrint('LiveDelivery: Destination location NOT FOUND YET. (Pickup: $_pickupLocation, Delivery: $_deliveryLocation)');
-      // If locations aren't loaded yet, try to load them again
-      _ensureLocationsLoaded();
-    }
+    if (destination != null) { openGoogleMaps(destination.latitude, destination.longitude); }
+    else { debugPrint('LiveDelivery: Destination location NOT FOUND YET.'); _ensureLocationsLoaded(); }
   }
 
   Future<void> _updateDriverLocationInSupabase(LatLng position) async {
@@ -308,19 +223,10 @@ class _LiveDeliveryScreenState extends State<LiveDeliveryScreen> {
     try {
       final profile = await _client.from('profiles').select().eq('id', user.id).maybeSingle();
       if (profile != null) {
-        final updates = <String, dynamic>{
-          'updated_at': DateTime.now().toIso8601String(),
-        };
-        if (profile.containsKey('last_location_update')) {
-          updates['last_location_update'] = DateTime.now().toIso8601String();
-        }
-        if (profile.containsKey('latitude')) { 
-          updates['latitude'] = position.latitude; 
-          updates['longitude'] = position.longitude; 
-        } else if (profile.containsKey('last_lat')) { 
-          updates['last_lat'] = position.latitude; 
-          updates['last_lng'] = position.longitude; 
-        }
+        final updates = <String, dynamic>{'updated_at': DateTime.now().toIso8601String()};
+        if (profile.containsKey('last_location_update')) updates['last_location_update'] = DateTime.now().toIso8601String();
+        if (profile.containsKey('latitude')) { updates['latitude'] = position.latitude; updates['longitude'] = position.longitude; }
+        else if (profile.containsKey('last_lat')) { updates['last_lat'] = position.latitude; updates['last_lng'] = position.longitude; }
         await _client.from('profiles').update(updates).eq('id', user.id);
       }
     } catch (e) { debugPrint('LiveDelivery: Location update error: $e'); }
@@ -333,78 +239,44 @@ class _LiveDeliveryScreenState extends State<LiveDeliveryScreen> {
     if (await canLaunchUrl(launchUri)) await launchUrl(launchUri, mode: LaunchMode.externalApplication);
   }
 
-  Future<void> _handleArrivedAtPharmacy() async {
-    // This method is now bypassed to simplify the flow
-    _handlePickedUp();
-  }
+  Future<void> _handleArrivedAtPharmacy() async { _handlePickedUp(); }
 
   Future<void> _handlePickedUp() async {
     if (_order == null) return;
     setState(() => _isUpdatingStatus = true);
-    try { 
-      // 1. Navigate to Pickup Confirmation Screen for proof
-      final result = await Navigator.pushNamed(
-        context,
-        AppRoutes.pickupConfirmation,
-        arguments: _order,
-      );
-
+    try {
+      final result = await Navigator.pushNamed(context, AppRoutes.pickupConfirmation, arguments: _order);
       if (result == true && mounted) {
-        // 2. Update status to 'picked_up' in database
         await _orderService.updateOrderStatus(_order!['id'], 'picked_up');
-        setState(() {
-          _lastProcessedStatus = 'picked_up';
-          if (_order != null) {
-            _order!['status'] = 'picked_up';
-          }
-        });
-        
-        // 3. FORCE fetch fresh customer location from Supabase
+        setState(() { _lastProcessedStatus = 'picked_up'; if (_order != null) _order!['status'] = 'picked_up'; });
         final userId = _order!['user_id']?.toString();
         if (userId != null) {
           debugPrint('LiveDelivery: Refreshing customer location after pickup...');
           await _loadCustomerLocation(userId);
         }
-
-        // 4. Trigger auto-redirection to CUSTOMER
         if (_deliveryLocation != null) {
           debugPrint('LiveDelivery: Auto-redirecting to customer at $_deliveryLocation');
           openGoogleMaps(_deliveryLocation!.latitude, _deliveryLocation!.longitude);
-        } else {
-          debugPrint('LiveDelivery: Customer location missing after refresh, trying geocoding/fallback...');
-          navigateToDestination();
-        }
+        } else { debugPrint('LiveDelivery: Customer location missing after refresh'); navigateToDestination(); }
       }
-    }
-    catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'))); }
+    } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'))); }
     finally { if (mounted) setState(() => _isUpdatingStatus = false); }
   }
 
   Future<void> _handleDelivered() async {
     if (_order == null) return;
-    Navigator.pushNamed(
-      context,
-      AppRoutes.confirmDelivery,
-      arguments: _order,
-    );
+    Navigator.pushNamed(context, AppRoutes.confirmDelivery, arguments: _order);
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_order == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (_order == null) return const Scaffold(body: Center(child: CircularProgressIndicator(color: PharmacoTokens.primaryBase)));
     final lp = Provider.of<LanguageProvider>(context);
     final status = (_order!['status'] as String? ?? 'accepted').toLowerCase();
-    // Simplified flow: Accepted/Ready/Preparing all go to Pharmacy pickup
     final bool isEnRouteToPharmacy = ['accepted', 'ready', 'preparing', 'assigned'].contains(status);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          isEnRouteToPharmacy 
-            ? lp.translate('navigate_pharmacy') 
-            : lp.translate('navigate_customer')
-        ),
-      ),
+      appBar: AppBar(title: Text(isEnRouteToPharmacy ? lp.translate('navigate_pharmacy') : lp.translate('navigate_customer'))),
       body: Stack(
         children: [
           GoogleMap(
@@ -425,69 +297,67 @@ class _LiveDeliveryScreenState extends State<LiveDeliveryScreen> {
   }
 
   Widget _buildBottomCard(LanguageProvider lp) {
+    final theme = Theme.of(context);
     final status = (_order!['status'] as String? ?? 'accepted').toLowerCase();
-    // Accepted/Ready/Preparing mean we need to pick up from pharmacy
     final bool isEnRouteToPharmacy = ['accepted', 'ready', 'preparing', 'assigned'].contains(status);
-    
+
     return Positioned(
       bottom: 0, left: 0, right: 0,
       child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: const BoxDecoration(
-          color: Colors.white, 
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)]
+        padding: const EdgeInsets.all(PharmacoTokens.space20),
+        decoration: BoxDecoration(
+          color: PharmacoTokens.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(PharmacoTokens.radiusCard)),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 16, offset: const Offset(0, -4))],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(status.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.blue)),
-            const SizedBox(height: 8),
+            Text(status.toUpperCase(), style: theme.textTheme.titleMedium?.copyWith(fontWeight: PharmacoTokens.weightBold, color: PharmacoTokens.primaryBase)),
+            const SizedBox(height: PharmacoTokens.space8),
             Text(
-              isEnRouteToPharmacy 
-                ? lp.translate('heading_pharmacy') 
-                : lp.translate('heading_customer'),
-              style: const TextStyle(fontSize: 16, color: Colors.grey),
+              isEnRouteToPharmacy ? lp.translate('heading_pharmacy') : lp.translate('heading_customer'),
+              style: theme.textTheme.bodyMedium?.copyWith(color: PharmacoTokens.neutral500),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: PharmacoTokens.space16),
             Row(children: [
-              if (_customerPhone != null) 
+              if (_customerPhone != null)
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => _makePhoneCall(_customerPhone!), 
-                    icon: const Icon(Icons.call),
+                    onPressed: () => _makePhoneCall(_customerPhone!),
+                    icon: const Icon(Icons.call_rounded),
                     label: Text(lp.translate('call')),
                     style: OutlinedButton.styleFrom(minimumSize: const Size(0, 50)),
-                  )
+                  ),
                 ),
-              const SizedBox(width: 8),
+              const SizedBox(width: PharmacoTokens.space8),
               Expanded(flex: 2, child: Column(
                 children: [
                   ElevatedButton.icon(
-                    onPressed: navigateToDestination, 
-                    icon: const Icon(Icons.navigation),
+                    onPressed: navigateToDestination,
+                    icon: const Icon(Icons.navigation_rounded),
                     label: Text(lp.translate('re_direct')),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue, 
-                      foregroundColor: Colors.white, 
-                      minimumSize: const Size(double.infinity, 50)
+                      backgroundColor: PharmacoTokens.primaryBase,
+                      foregroundColor: PharmacoTokens.white,
+                      minimumSize: const Size(double.infinity, 50),
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: PharmacoTokens.space8),
                   ElevatedButton(
-                    onPressed: _isUpdatingStatus ? null : (isEnRouteToPharmacy ? _handlePickedUp : _handleDelivered), 
+                    onPressed: _isUpdatingStatus ? null : (isEnRouteToPharmacy ? _handlePickedUp : _handleDelivered),
                     style: ElevatedButton.styleFrom(
                       minimumSize: const Size(double.infinity, 50),
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white
+                      backgroundColor: PharmacoTokens.success,
+                      foregroundColor: PharmacoTokens.white,
                     ),
-                    child: Text(_isUpdatingStatus 
-                      ? lp.translate('updating') 
+                    child: Text(_isUpdatingStatus
+                      ? lp.translate('updating')
                       : (isEnRouteToPharmacy ? lp.translate('confirm_pickup') : lp.translate('confirm_delivery'))),
                   ),
                 ],
               )),
-            ])
+            ]),
           ],
         ),
       ),

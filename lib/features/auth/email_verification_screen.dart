@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pharmaco_delivery_partner/app/routes/app_routes.dart';
-import 'package:pharmaco_delivery_partner/app/widgets/custom_button.dart';
 import 'package:pharmaco_delivery_partner/core/services/auth_service.dart';
+import 'package:pharmaco_delivery_partner/theme/design_tokens.dart';
 
 class EmailVerificationScreen extends StatefulWidget {
   final String email;
@@ -21,19 +21,17 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
       await _authService.resendVerificationEmail(widget.email);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Verification email sent!'), backgroundColor: Colors.green),
+          const SnackBar(content: Text('Verification email sent!'), backgroundColor: PharmacoTokens.success),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to resend email: ${e.toString()}'), backgroundColor: Theme.of(context).colorScheme.error),
+          SnackBar(content: Text('Failed to resend email: ${e.toString()}'), backgroundColor: PharmacoTokens.error),
         );
       }
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -41,38 +39,52 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
+      backgroundColor: PharmacoTokens.neutral50,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent, elevation: 0,
+        iconTheme: const IconThemeData(color: PharmacoTokens.neutral700),
+      ),
       body: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(PharmacoTokens.space24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Image.asset(
               'assets/images/logo.png',
-              height: 180, // Increased size
-              width: 180,  // Added width
-              fit: BoxFit.contain, // Added fit
-              errorBuilder: (context, error, stackTrace) => Icon(
-                Icons.email_outlined,
-                size: 100,
-                color: theme.primaryColor,
+              height: 140, width: 140, fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) => CircleAvatar(
+                radius: 48,
+                backgroundColor: PharmacoTokens.primarySurface,
+                child: const Icon(Icons.mark_email_read_outlined, size: 48, color: PharmacoTokens.primaryBase),
               ),
             ),
-            const SizedBox(height: 32),
-            Text('Verify Your Email', style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            Text(
-              'We\'ve sent a verification link to ${widget.email}. Please check your inbox and click the link to activate your account.',
-              style: theme.textTheme.bodyLarge?.copyWith(color: Colors.grey[600]),
-              textAlign: TextAlign.center,
+            const SizedBox(height: PharmacoTokens.space32),
+            Text('Verify Your Email', style: theme.textTheme.headlineLarge, textAlign: TextAlign.center),
+            const SizedBox(height: PharmacoTokens.space16),
+            Container(
+              padding: const EdgeInsets.all(PharmacoTokens.space16),
+              decoration: BoxDecoration(
+                color: PharmacoTokens.primarySurface,
+                borderRadius: PharmacoTokens.borderRadiusMedium,
+              ),
+              child: Text(
+                'We\'ve sent a verification link to ${widget.email}. Please check your inbox and click the link to activate your account.',
+                style: theme.textTheme.bodyMedium?.copyWith(color: PharmacoTokens.primaryDark),
+                textAlign: TextAlign.center,
+              ),
             ),
-            const SizedBox(height: 48),
-            CustomButton(
-              text: _isLoading ? 'SENDING...' : 'RESEND VERIFICATION EMAIL',
-              onPressed: _isLoading ? null : _resendVerificationEmail,
+            const SizedBox(height: PharmacoTokens.space40),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _isLoading ? null : _resendVerificationEmail,
+                child: _isLoading
+                    ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+                    : const Text('RESEND VERIFICATION EMAIL'),
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: PharmacoTokens.space16),
             TextButton(
               onPressed: () => Navigator.pushNamedAndRemoveUntil(context, AppRoutes.login, (route) => false),
               child: const Text('Back to Sign In'),

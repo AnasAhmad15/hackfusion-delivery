@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:pharmaco_delivery_partner/app/widgets/custom_button.dart';
 import 'package:pharmaco_delivery_partner/core/services/earnings_service.dart';
+import 'package:pharmaco_delivery_partner/theme/design_tokens.dart';
 
 class WithdrawFundsScreen extends StatefulWidget {
   final double availableBalance;
@@ -16,91 +16,46 @@ class _WithdrawFundsScreenState extends State<WithdrawFundsScreen> {
   final _upiController = TextEditingController();
   final _bankAccountController = TextEditingController();
   final _ifscController = TextEditingController();
-  
   String _selectedMethod = 'UPI';
   bool _isLoading = false;
 
   @override
-  void dispose() {
-    _amountController.dispose();
-    _upiController.dispose();
-    _bankAccountController.dispose();
-    _ifscController.dispose();
-    super.dispose();
-  }
+  void dispose() { _amountController.dispose(); _upiController.dispose(); _bankAccountController.dispose(); _ifscController.dispose(); super.dispose(); }
 
   void _handleWithdraw() async {
     final amount = double.tryParse(_amountController.text) ?? 0;
     if (amount <= 0 || amount > widget.availableBalance) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid withdrawal amount'), backgroundColor: Colors.red),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid withdrawal amount'), backgroundColor: PharmacoTokens.error));
       return;
     }
-
     if (_selectedMethod == 'UPI' && _upiController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter UPI ID'), backgroundColor: Colors.red),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter UPI ID'), backgroundColor: PharmacoTokens.error));
       return;
     }
-
     setState(() => _isLoading = true);
-
-    final details = _selectedMethod == 'UPI' 
-      ? {'upi_id': _upiController.text}
-      : {'account_number': _bankAccountController.text, 'ifsc': _ifscController.text};
-
-    final result = await _earningsService.withdrawEarnings(
-      amount: amount,
-      method: _selectedMethod,
-      details: details,
-    );
-
+    final details = _selectedMethod == 'UPI' ? {'upi_id': _upiController.text} : {'account_number': _bankAccountController.text, 'ifsc': _ifscController.text};
+    final result = await _earningsService.withdrawEarnings(amount: amount, method: _selectedMethod, details: details);
     setState(() => _isLoading = false);
-
-    if (result['success'] == true) {
-      if (mounted) {
-        _showSuccessDialog(amount);
-      }
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result['message'] ?? 'Withdrawal failed'), backgroundColor: Colors.red),
-        );
-      }
-    }
+    if (result['success'] == true) { if (mounted) _showSuccessDialog(amount); }
+    else { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result['message'] ?? 'Withdrawal failed'), backgroundColor: PharmacoTokens.error)); }
   }
 
   void _showSuccessDialog(double amount) {
+    final theme = Theme.of(context);
     showDialog(
-      context: context,
-      barrierDismissible: false,
+      context: context, barrierDismissible: false,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        shape: RoundedRectangleBorder(borderRadius: PharmacoTokens.borderRadiusCard),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.check_circle, color: Colors.green, size: 80),
-            const SizedBox(height: 16),
-            const Text(
-              'Withdrawal Successful!',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '₹$amount has been initiated to your $_selectedMethod.',
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.grey),
-            ),
-            const SizedBox(height: 24),
-            CustomButton(
-              text: 'DONE',
-              onPressed: () {
-                Navigator.pop(context); // Close dialog
-                Navigator.pop(context, true); // Go back to earnings screen
-              },
-            ),
+            const Icon(Icons.check_circle_rounded, color: PharmacoTokens.success, size: 80),
+            const SizedBox(height: PharmacoTokens.space16),
+            Text('Withdrawal Successful!', style: theme.textTheme.titleLarge),
+            const SizedBox(height: PharmacoTokens.space8),
+            Text('₹$amount has been initiated to your $_selectedMethod.', textAlign: TextAlign.center, style: theme.textTheme.bodyMedium?.copyWith(color: PharmacoTokens.neutral500)),
+            const SizedBox(height: PharmacoTokens.space24),
+            ElevatedButton(onPressed: () { Navigator.pop(context); Navigator.pop(context, true); }, child: const Text('DONE')),
           ],
         ),
       ),
@@ -111,30 +66,28 @@ class _WithdrawFundsScreenState extends State<WithdrawFundsScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
+      backgroundColor: PharmacoTokens.neutral50,
       appBar: AppBar(title: const Text('Withdraw Funds')),
-      body: _isLoading 
-        ? const Center(child: CircularProgressIndicator())
+      body: _isLoading
+        ? const Center(child: CircularProgressIndicator(color: PharmacoTokens.primaryBase))
         : SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(PharmacoTokens.space24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _buildBalanceHeader(theme),
-                const SizedBox(height: 32),
-                _buildAmountInput(),
-                const SizedBox(height: 32),
-                const Text('Select Payout Method', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                const SizedBox(height: 16),
+                const SizedBox(height: PharmacoTokens.space32),
+                TextFormField(controller: _amountController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Withdrawal Amount', prefixText: '₹ ', helperText: 'Enter amount to withdraw')),
+                const SizedBox(height: PharmacoTokens.space32),
+                Text('Select Payout Method', style: theme.textTheme.titleSmall?.copyWith(fontWeight: PharmacoTokens.weightBold)),
+                const SizedBox(height: PharmacoTokens.space16),
                 _buildMethodSelector(theme),
-                const SizedBox(height: 24),
+                const SizedBox(height: PharmacoTokens.space24),
                 _buildMethodDetails(),
-                const SizedBox(height: 40),
-                _buildHelperText(),
-                const SizedBox(height: 24),
-                CustomButton(
-                  text: 'CONFIRM WITHDRAWAL',
-                  onPressed: _handleWithdraw,
-                ),
+                const SizedBox(height: PharmacoTokens.space40),
+                _buildHelperText(theme),
+                const SizedBox(height: PharmacoTokens.space24),
+                ElevatedButton(onPressed: _handleWithdraw, child: const Text('CONFIRM WITHDRAWAL')),
               ],
             ),
           ),
@@ -143,34 +96,14 @@ class _WithdrawFundsScreenState extends State<WithdrawFundsScreen> {
 
   Widget _buildBalanceHeader(ThemeData theme) {
     return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: theme.primaryColor.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.primaryColor.withOpacity(0.1)),
-      ),
+      padding: const EdgeInsets.all(PharmacoTokens.space24),
+      decoration: BoxDecoration(color: PharmacoTokens.primarySurface, borderRadius: PharmacoTokens.borderRadiusCard, border: Border.all(color: PharmacoTokens.primaryBase.withValues(alpha: 0.15))),
       child: Column(
         children: [
-          const Text('Available for Withdrawal', style: TextStyle(color: Colors.grey)),
-          const SizedBox(height: 8),
-          Text(
-            '₹${widget.availableBalance.toStringAsFixed(2)}',
-            style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: theme.primaryColor),
-          ),
+          Text('Available for Withdrawal', style: theme.textTheme.bodyMedium?.copyWith(color: PharmacoTokens.neutral500)),
+          const SizedBox(height: PharmacoTokens.space8),
+          Text('₹${widget.availableBalance.toStringAsFixed(2)}', style: theme.textTheme.headlineMedium?.copyWith(fontWeight: PharmacoTokens.weightBold, color: PharmacoTokens.primaryBase)),
         ],
-      ),
-    );
-  }
-
-  Widget _buildAmountInput() {
-    return TextFormField(
-      controller: _amountController,
-      keyboardType: TextInputType.number,
-      decoration: InputDecoration(
-        labelText: 'Withdrawal Amount',
-        prefixText: '₹ ',
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        helperText: 'Enter amount to withdraw',
       ),
     );
   }
@@ -178,80 +111,37 @@ class _WithdrawFundsScreenState extends State<WithdrawFundsScreen> {
   Widget _buildMethodSelector(ThemeData theme) {
     return Row(
       children: [
-        Expanded(
-          child: _MethodCard(
-            label: 'UPI',
-            icon: Icons.flash_on,
-            badge: 'Instant',
-            isSelected: _selectedMethod == 'UPI',
-            onTap: () => setState(() => _selectedMethod = 'UPI'),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _MethodCard(
-            label: 'Bank',
-            icon: Icons.account_balance,
-            isSelected: _selectedMethod == 'Bank',
-            onTap: () => setState(() => _selectedMethod = 'Bank'),
-          ),
-        ),
+        Expanded(child: _MethodCard(label: 'UPI', icon: Icons.flash_on_rounded, badge: 'Instant', isSelected: _selectedMethod == 'UPI', onTap: () => setState(() => _selectedMethod = 'UPI'))),
+        const SizedBox(width: PharmacoTokens.space16),
+        Expanded(child: _MethodCard(label: 'Bank', icon: Icons.account_balance_rounded, isSelected: _selectedMethod == 'Bank', onTap: () => setState(() => _selectedMethod = 'Bank'))),
       ],
     );
   }
 
   Widget _buildMethodDetails() {
     if (_selectedMethod == 'UPI') {
-      return TextFormField(
-        controller: _upiController,
-        decoration: InputDecoration(
-          labelText: 'UPI ID',
-          hintText: 'e.g. yourname@okaxis',
-          prefixIcon: const Icon(Icons.alternate_email),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
+      return TextFormField(controller: _upiController, decoration: const InputDecoration(labelText: 'UPI ID', hintText: 'e.g. yourname@okaxis', prefixIcon: Icon(Icons.alternate_email_rounded)));
     } else {
       return Column(
         children: [
-          TextFormField(
-            controller: _bankAccountController,
-            decoration: InputDecoration(
-              labelText: 'Account Number',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _ifscController,
-            decoration: InputDecoration(
-              labelText: 'IFSC Code',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-          ),
+          TextFormField(controller: _bankAccountController, decoration: const InputDecoration(labelText: 'Account Number')),
+          const SizedBox(height: PharmacoTokens.space16),
+          TextFormField(controller: _ifscController, decoration: const InputDecoration(labelText: 'IFSC Code')),
         ],
       );
     }
   }
 
-  Widget _buildHelperText() {
+  Widget _buildHelperText(ThemeData theme) {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.orange.shade50,
-        borderRadius: BorderRadius.circular(12),
-      ),
+      padding: const EdgeInsets.all(PharmacoTokens.space16),
+      decoration: BoxDecoration(color: PharmacoTokens.warning.withValues(alpha: 0.08), borderRadius: PharmacoTokens.borderRadiusMedium),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline, color: Colors.orange.shade800, size: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Minimum withdrawal: ₹100. UPI withdrawals are processed instantly. Bank transfers may take up to 24 hours.',
-              style: TextStyle(color: Colors.orange.shade900, fontSize: 13),
-            ),
-          ),
+          Icon(Icons.info_outline_rounded, color: PharmacoTokens.warning, size: 20),
+          const SizedBox(width: PharmacoTokens.space12),
+          Expanded(child: Text('Minimum withdrawal: ₹100. UPI withdrawals are processed instantly. Bank transfers may take up to 24 hours.', style: theme.textTheme.bodySmall?.copyWith(color: PharmacoTokens.neutral700))),
         ],
       ),
     );
@@ -264,61 +154,37 @@ class _MethodCard extends StatelessWidget {
   final String? badge;
   final bool isSelected;
   final VoidCallback onTap;
-
-  const _MethodCard({
-    required this.label,
-    required this.icon,
-    this.badge,
-    required this.isSelected,
-    required this.onTap,
-  });
+  const _MethodCard({required this.label, required this.icon, this.badge, required this.isSelected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: PharmacoTokens.borderRadiusCard,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(PharmacoTokens.space16),
         decoration: BoxDecoration(
-          color: isSelected ? theme.primaryColor : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: isSelected ? theme.primaryColor : Colors.grey.shade300),
+          color: isSelected ? PharmacoTokens.primaryBase : PharmacoTokens.white,
+          borderRadius: PharmacoTokens.borderRadiusCard,
+          border: Border.all(color: isSelected ? PharmacoTokens.primaryBase : PharmacoTokens.neutral200),
+          boxShadow: isSelected ? null : PharmacoTokens.shadowZ1(),
         ),
         child: Stack(
           children: [
             Column(
               children: [
-                Icon(icon, color: isSelected ? Colors.white : Colors.grey, size: 32),
-                const SizedBox(height: 8),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: isSelected ? Colors.white : Colors.grey.shade700,
-                  ),
-                ),
+                Icon(icon, color: isSelected ? Colors.white : PharmacoTokens.neutral500, size: 32),
+                const SizedBox(height: PharmacoTokens.space8),
+                Text(label, style: TextStyle(fontWeight: PharmacoTokens.weightBold, color: isSelected ? Colors.white : PharmacoTokens.neutral700)),
               ],
             ),
             if (badge != null)
               Positioned(
-                top: -8,
-                right: -8,
+                top: -8, right: -8,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: isSelected ? Colors.white : theme.primaryColor,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    badge!,
-                    style: TextStyle(
-                      fontSize: 8,
-                      fontWeight: FontWeight.bold,
-                      color: isSelected ? theme.primaryColor : Colors.white,
-                    ),
-                  ),
+                  decoration: BoxDecoration(color: isSelected ? PharmacoTokens.white : PharmacoTokens.primaryBase, borderRadius: PharmacoTokens.borderRadiusFull),
+                  child: Text(badge!, style: TextStyle(fontSize: 8, fontWeight: PharmacoTokens.weightBold, color: isSelected ? PharmacoTokens.primaryBase : PharmacoTokens.white)),
                 ),
               ),
           ],

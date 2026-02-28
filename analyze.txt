@@ -1,0 +1,36 @@
+﻿Analyzing lib...
+
+warning - app\routes\app_routes.dart:2:8 - Unused import: 'package:pharmaco_delivery_partner/features/auth/login_screen.dart'. Try removing the import directive. - unused_import
+warning - app\routes\app_routes.dart:3:8 - Unused import: 'package:pharmaco_delivery_partner/features/home/home_screen.dart'. Try removing the import directive. - unused_import
+warning - app\routes\app_routes.dart:13:8 - Unused import: 'package:pharmaco_delivery_partner/features/ratings/ratings_screen.dart'. Try removing the import directive. - unused_import
+warning - core\services\earnings_service.dart:1:8 - Unused import: 'package:flutter/foundation.dart'. Try removing the import directive. - unused_import
+warning - core\services\fcm_service.dart:5:8 - Unused import: 'package:permission_handler/permission_handler.dart'. Try removing the import directive. - unused_import
+warning - core\services\profile_service.dart:1:8 - Unused import: 'dart:io'. Try removing the import directive. - unused_import
+warning - core\services\ratings_service.dart:17:20 - The operand can't be 'null', so the condition is always 'false'. Try removing the condition, an enclosing condition, or the whole conditional statement. - unnecessary_null_comparison
+warning - core\services\ratings_service.dart:50:58 - The left operand can't be null, so the right operand is never executed. Try removing the operator and the right operand. - dead_null_aware_expression
+warning - features\home\home_screen.dart:29:8 - The value of the field '_isLoadingProfile' isn't used. Try removing the field, or using it. - unused_field
+warning - features\navigation\main_navigation_screen.dart:23:11 - The value of the field '_profilePhotoUrl' isn't used. Try removing the field, or using it. - unused_field
+warning - features\navigation\main_navigation_screen.dart:63:11 - The value of the local variable 'theme' isn't used. Try removing the variable or using it. - unused_local_variable
+warning - features\onboarding\personal_details_screen.dart:28:8 - The value of the field '_isFormValid' isn't used. Try removing the field, or using it. - unused_field
+warning - features\onboarding\vehicle_details_onboarding_screen.dart:235:10 - The declaration '_buildTextField' isn't referenced. Try removing the declaration of '_buildTextField'. - unused_element
+warning - features\order\confirm_delivery_screen.dart:4:8 - Unused import: 'package:intl/intl.dart'. Try removing the import directive. - unused_import
+warning - features\order\confirm_delivery_screen.dart:5:8 - Unused import: 'package:provider/provider.dart'. Try removing the import directive. - unused_import
+warning - features\order\confirm_delivery_screen.dart:7:8 - Unused import: 'package:pharmaco_delivery_partner/core/providers/language_provider.dart'. Try removing the import directive. - unused_import
+warning - features\order\live_delivery_screen.dart:22:24 - The value of the field '_mapController' isn't used. Try removing the field, or using it. - unused_field
+warning - features\order\live_delivery_screen.dart:33:11 - The value of the field '_customerName' isn't used. Try removing the field, or using it. - unused_field
+warning - features\order\live_delivery_screen.dart:34:11 - The value of the field '_pharmacyName' isn't used. Try removing the field, or using it. - unused_field
+warning - features\order\live_delivery_screen.dart:242:16 - The declaration '_handleArrivedAtPharmacy' isn't referenced. Try removing the declaration of '_handleArrivedAtPharmacy'. - unused_element
+warning - features\order\order_details_screen.dart:15:8 - The value of the field '_isPickedUp' isn't used. Try removing the field, or using it. - unused_field
+warning - features\orders\orders_screen.dart:19:22 - The value of the field '_orderService' isn't used. Try removing the field, or using it. - unused_field
+warning - features\orders\orders_screen.dart:347:7 - The declaration '_OrderCard' isn't referenced. Try removing the declaration of '_OrderCard'. - unused_element
+warning - features\orders\orders_screen.dart:498:7 - The declaration '_EmptyState' isn't referenced. Try removing the declaration of '_EmptyState'. - unused_element
+warning - features\profile\documents_verification_screen.dart:20:11 - The value of the field '_errorMessage' isn't used. Try removing the field, or using it. - unused_field
+warning - features\profile\profile_screen.dart:21:8 - The value of the field '_isLoading' isn't used. Try removing the field, or using it. - unused_field
+warning - features\profile\profile_screen.dart:300:11 - The value of the local variable 'result' isn't used. Try removing the variable or using it. - unused_local_variable
+   info - features\navigation\main_navigation_screen.dart:65:12 - 'WillPopScope' is deprecated and shouldn't be used. Use PopScope instead. The Android predictive back feature will not work with WillPopScope. This feature was deprecated after v3.12.0-1.0.pre. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - features\onboarding\personal_details_screen.dart:346:7 - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - features\onboarding\vehicle_details_onboarding_screen.dart:144:7 - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - features\order\confirm_delivery_screen.dart:185:26 - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - features\order\confirm_delivery_screen.dart:186:11 - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+
+32 issues found.

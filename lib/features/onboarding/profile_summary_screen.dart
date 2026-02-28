@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:pharmaco_delivery_partner/app/widgets/custom_button.dart';
 import 'package:pharmaco_delivery_partner/core/models/onboarding_profile.dart';
 import 'package:pharmaco_delivery_partner/core/services/profile_service.dart';
 import 'package:pharmaco_delivery_partner/app/routes/app_routes.dart';
+import 'package:pharmaco_delivery_partner/theme/design_tokens.dart';
 
 class ProfileSummaryScreen extends StatefulWidget {
   final OnboardingProfile profile;
@@ -53,6 +53,7 @@ class _ProfileSummaryScreenState extends State<ProfileSummaryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: PharmacoTokens.neutral50,
       appBar: AppBar(
         title: const Text('Review & Confirm (4/4)'),
       ),
@@ -79,9 +80,9 @@ class _ProfileSummaryScreenState extends State<ProfileSummaryScreen> {
               'Preferred Area': widget.profile.preferredDeliveryArea ?? 'N/A',
             }),
             const SizedBox(height: 48),
-            CustomButton(
-              text: _isLoading ? 'SAVING...' : 'CONFIRM & COMPLETE PROFILE',
-              onPressed: _isLoading ? () {} : _submitProfile,
+            ElevatedButton(
+              onPressed: _isLoading ? null : _submitProfile,
+              child: Text(_isLoading ? 'SAVING...' : 'CONFIRM & COMPLETE PROFILE'),
             ),
           ],
         ),
@@ -123,7 +124,7 @@ class _ProfileSummaryScreenState extends State<ProfileSummaryScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(entry.key, style: theme.textTheme.bodyLarge?.copyWith(color: Colors.grey[600])),
+              Text(entry.key, style: theme.textTheme.bodyLarge?.copyWith(color: PharmacoTokens.neutral500)),
               const SizedBox(width: 16),
               Expanded(
                 child: Text(
