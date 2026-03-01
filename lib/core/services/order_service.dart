@@ -168,7 +168,7 @@ class OrderService {
         .from('orders')
         .count()
         .eq('delivery_partner_id', userId)
-        .eq('status', 'completed');
+        .inFilter('status', ['delivered', 'completed']);
 
     return count;
   }
@@ -177,7 +177,7 @@ class OrderService {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return Stream.value(null);
 
-    final activeStatuses = ['ready', 'preparing', 'accepted', 'picked_up', 'delivered'];
+    final activeStatuses = ['ready', 'preparing', 'accepted', 'picked_up'];
     return _client
         .from('orders')
         .stream(primaryKey: ['id'])
@@ -224,8 +224,8 @@ class OrderService {
     final List<Map<String, dynamic>> allOrders =
         List<Map<String, dynamic>>.from(response);
 
-    final activeStatuses = ['ready', 'preparing', 'accepted', 'picked_up', 'delivered'];
-    final pastStatuses = ['completed', 'cancelled'];
+    final activeStatuses = ['ready', 'preparing', 'accepted', 'picked_up'];
+    final pastStatuses = ['delivered', 'completed', 'cancelled'];
 
     final activeOrders = allOrders
         .where(

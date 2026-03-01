@@ -395,29 +395,152 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
           ],
         ),
         const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.grey[50],
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            children: [
-              Icon(Icons.history, color: Colors.grey[400], size: 48),
-              const SizedBox(height: 12),
-              Text(
-                lp.translate('no_recent_activity'),
-                style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w500),
-              ),
-              Text(
-                lp.translate('complete_orders_to_see'),
-                style: TextStyle(color: Colors.grey[400], fontSize: 12),
-              ),
-            ],
-          ),
+        StreamBuilder<List<Map<String, dynamic>>>(
+          stream: _orderService.getMyOrders(),
+          builder: (context, snapshot) {
+            final orders = snapshot.data ?? [];
+            if (orders.isEmpty) {
+              return Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: [
+                    Icon(Icons.history, color: Colors.grey[400], size: 48),
+                    const SizedBox(height: 12),
+                    Text(
+                      lp.translate('no_recent_activity'),
+                      style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w500),
+                    ),
+                    Text(
+                      lp.translate('complete_orders_to_see'),
+                      style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: orders.length > 3 ? 3 : orders.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final order = orders[index];
+                final status = (order['status'] as String? ?? 'pending').toLowerCase();
+                
+                return InkWell(
+                  onTap: () => Navigator.pushNamed(context, AppRoutes.orderDetails, arguments: order),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade100),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.02),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: _getStatusColor(status).withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            _getStatusIcon(status),
+                            color: _getStatusColor(status),
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Order #${order['id'].toString().substring(0, 8).toUpperCase()}',
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                order['delivery_address'] ?? 'No address',
+                                style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '₹${order['total_amount'] ?? '0'}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: theme.primaryColor,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              status.toUpperCase(),
+                              style: TextStyle(
+                                color: _getStatusColor(status),
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
         ),
       ],
     );
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'delivered':
+      case 'completed':
+        return Colors.green;
+      case 'picked_up':
+        return Colors.blue;
+      case 'cancelled':
+        return Colors.red;
+      default:
+        return Colors.orange;
+    }
+  }
+
+  IconData _getStatusIcon(String status) {
+    switch (status) {
+      case 'delivered':
+      case 'completed':
+        return Icons.check_circle_outline;
+      case 'picked_up':
+        return Icons.local_shipping_outlined;
+      case 'cancelled':
+        return Icons.cancel_outlined;
+      default:
+        return Icons.access_time;
+    }
   }
 
   void _promptToCompleteProfile(LanguageProvider lp) {

@@ -20,11 +20,11 @@ class _ConfirmDeliveryScreenState extends State<ConfirmDeliveryScreen> {
   final OrderService _orderService = OrderService();
   final ImagePicker _picker = ImagePicker();
   File? _imageFile;
-  String? _selectedPaymentMethod;
+  String? _selectedPaymentMethod = 'Already Paid Online';
   final TextEditingController _amountController = TextEditingController();
   bool _isLoading = false;
   final _formKey = GlobalKey<FormState>();
-  final List<String> _paymentMethods = ['Cash', 'UPI', 'Card', 'Already Paid Online'];
+  final List<String> _paymentMethods = ['Already Paid Online'];
 
   Future<void> _takePhoto() async {
     final XFile? photo = await _picker.pickImage(source: ImageSource.camera, imageQuality: 70);
@@ -38,16 +38,14 @@ class _ConfirmDeliveryScreenState extends State<ConfirmDeliveryScreen> {
     setState(() => _isLoading = true);
     try {
       final double totalAmount = (widget.order['total_amount'] as num?)?.toDouble() ?? 0.0;
-      final double amountReceived = _selectedPaymentMethod == 'Cash' 
-          ? double.tryParse(_amountController.text) ?? 0.0 
-          : totalAmount;
+      final double amountReceived = totalAmount;
 
       final result = await _orderService.completeOrderWithDetails(
         orderId: widget.order['id'],
         imageFile: _imageFile!,
         paymentMethod: _selectedPaymentMethod!,
         amountReceived: amountReceived,
-        paymentStatus: (_selectedPaymentMethod == 'Already Paid Online' || _selectedPaymentMethod == 'UPI' || _selectedPaymentMethod == 'Card') ? 'paid' : 'paid',
+        paymentStatus: 'paid',
       );
 
       if (result['success'] == true && mounted) {
@@ -62,7 +60,6 @@ class _ConfirmDeliveryScreenState extends State<ConfirmDeliveryScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
-    return {'success': false};
   }
 
   void _showSuccessAnimation() {
@@ -191,30 +188,30 @@ class _ConfirmDeliveryScreenState extends State<ConfirmDeliveryScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Payment Method', style: theme.textTheme.titleSmall?.copyWith(fontWeight: PharmacoTokens.weightBold)),
+        Text('Payment Status', style: theme.textTheme.titleSmall?.copyWith(fontWeight: PharmacoTokens.weightBold)),
         const SizedBox(height: PharmacoTokens.space12),
-        ..._paymentMethods.map((method) => RadioListTile<String>(
-          title: Text(method, style: theme.textTheme.bodyMedium),
-          value: method, groupValue: _selectedPaymentMethod,
-          onChanged: (value) { setState(() { _selectedPaymentMethod = value; if (value != 'Cash') _amountController.clear(); }); },
-          contentPadding: EdgeInsets.zero,
-        )),
-        if (_selectedPaymentMethod == 'Cash')
-          Padding(
-            padding: const EdgeInsets.only(top: PharmacoTokens.space16),
-            child: TextFormField(
-              controller: _amountController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Amount Received', prefixText: '₹ '),
-              validator: (value) {
-                if (value == null || value.isEmpty) return 'Please enter amount';
-                final amount = double.tryParse(value);
-                if (amount == null) return 'Invalid amount';
-                if (amount != totalAmount) return 'Amount must match ₹$totalAmount';
-                return null;
-              },
-            ),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(PharmacoTokens.space16),
+          decoration: BoxDecoration(
+            color: PharmacoTokens.success.withOpacity(0.1),
+            borderRadius: PharmacoTokens.borderRadiusMedium,
+            border: Border.all(color: PharmacoTokens.success.withOpacity(0.3)),
           ),
+          child: Row(
+            children: [
+              const Icon(Icons.check_circle_rounded, color: PharmacoTokens.success),
+              const SizedBox(width: PharmacoTokens.space12),
+              Text(
+                'Already Paid Online',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: PharmacoTokens.success,
+                  fontWeight: PharmacoTokens.weightBold,
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }

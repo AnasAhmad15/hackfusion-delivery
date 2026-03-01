@@ -24,20 +24,51 @@ class _WithdrawFundsScreenState extends State<WithdrawFundsScreen> {
 
   void _handleWithdraw() async {
     final amount = double.tryParse(_amountController.text) ?? 0;
-    if (amount <= 0 || amount > widget.availableBalance) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid withdrawal amount'), backgroundColor: PharmacoTokens.error));
+    if (amount < 100) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Minimum withdrawal amount is ₹100'), backgroundColor: PharmacoTokens.error));
       return;
     }
-    if (_selectedMethod == 'UPI' && _upiController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter UPI ID'), backgroundColor: PharmacoTokens.error));
+    if (amount > widget.availableBalance) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Insufficient balance'), backgroundColor: PharmacoTokens.error));
       return;
     }
+    
+    if (_selectedMethod == 'UPI') {
+      if (_upiController.text.isEmpty || !_upiController.text.contains('@')) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a valid UPI ID'), backgroundColor: PharmacoTokens.error));
+        return;
+      }
+    } else {
+      if (_bankAccountController.text.length < 9) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a valid Account Number'), backgroundColor: PharmacoTokens.error));
+        return;
+      }
+      if (_ifscController.text.length != 11) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a valid 11-digit IFSC Code'), backgroundColor: PharmacoTokens.error));
+        return;
+      }
+    }
+
     setState(() => _isLoading = true);
-    final details = _selectedMethod == 'UPI' ? {'upi_id': _upiController.text} : {'account_number': _bankAccountController.text, 'ifsc': _ifscController.text};
-    final result = await _earningsService.withdrawEarnings(amount: amount, method: _selectedMethod, details: details);
+    final details = _selectedMethod == 'UPI' 
+        ? {'upi_id': _upiController.text} 
+        : {
+            'account_number': _bankAccountController.text, 
+            'ifsc': _ifscController.text.toUpperCase()
+          };
+    
+    final result = await _earningsService.withdrawEarnings(
+      amount: amount, 
+      method: _selectedMethod, 
+      details: details
+    );
+    
     setState(() => _isLoading = false);
-    if (result['success'] == true) { if (mounted) _showSuccessDialog(amount); }
-    else { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result['message'] ?? 'Withdrawal failed'), backgroundColor: PharmacoTokens.error)); }
+    if (result['success'] == true) { 
+      if (mounted) _showSuccessDialog(amount); 
+    } else { 
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result['message'] ?? 'Withdrawal failed'), backgroundColor: PharmacoTokens.error)); 
+    }
   }
 
   void _showSuccessDialog(double amount) {

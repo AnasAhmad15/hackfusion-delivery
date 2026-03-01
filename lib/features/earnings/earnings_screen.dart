@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:pharmaco_delivery_partner/features/earnings/bank_details_form_screen.dart';
+import 'package:pharmaco_delivery_partner/features/earnings/upi_details_form_screen.dart';
+import 'package:pharmaco_delivery_partner/features/earnings/withdraw_funds_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:pharmaco_delivery_partner/core/services/earnings_service.dart';
 import 'package:pharmaco_delivery_partner/core/services/order_service.dart';
@@ -134,7 +137,14 @@ class _EarningsScreenState extends State<EarningsScreen>
       children: [
         Expanded(
           child: ElevatedButton.icon(
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const UPIDetailsFormScreen(),
+                ),
+              );
+            },
             icon: const Icon(Icons.account_balance_wallet_outlined, size: 18),
             label: Text(lp.translate('upi_transfer')),
             style: ElevatedButton.styleFrom(
@@ -149,7 +159,14 @@ class _EarningsScreenState extends State<EarningsScreen>
         const SizedBox(width: PharmacoTokens.space12),
         Expanded(
           child: ElevatedButton.icon(
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const BankDetailsFormScreen(),
+                ),
+              );
+            },
             icon: const Icon(Icons.account_balance_outlined, size: 18),
             label: Text(lp.translate('bank_payout')),
             style: ElevatedButton.styleFrom(
